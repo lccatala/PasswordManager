@@ -59,35 +59,13 @@ func server() {
 	}
 }
 
-// Client logic
-func client() {
-	fmt.Printf("Client is running...\n")
-
-	// Establish connection with server
-	connection, err := net.Dial("tcp", address+":1337")
-	checkError(err)
-	defer connection.Close()
-
-	fmt.Print("Connected to ", connection.RemoteAddr(), "\n")
-
-	keyscan := bufio.NewScanner(os.Stdin)
-	netscan := bufio.NewScanner(connection)
-
-	// Input scan
-	for keyscan.Scan() {
-		fmt.Fprintln(connection, keyscan.Text()) // Send input to server
-		netscan.Scan()                           // Scan connection
-		fmt.Printf("Server: " + netscan.Text())  // Show server messag
-	}
-}
-
 func main() {
 	if len(os.Args) > 1 {
 		switch strings.ToLower(os.Args[1]) {
 		case "server":
 			server()
 		case "client":
-			client()
+			startClient(300, 500)
 		}
 	} else {
 		fmt.Printf("Incorrect number of arguments.\nFirst argument should be either 'client' or 'server'\n")

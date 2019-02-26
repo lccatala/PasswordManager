@@ -1,0 +1,61 @@
+<!doctype html>
+<html>
+		<head>
+			<meta charset="utf-8">
+			<meta http-equiv="X-UA-Compatible" content="IE=edge">
+			<meta name="viewport" content="width=device-width, initial-scale=1">
+			<title>Client</title>
+			<!-- Bootstrap -->
+      <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
+      
+      <link href="main.css" rel="stylesheet">
+    </head>
+		<body>
+      <div id="login" style="display: none;">
+        <div class="container">
+          <form class="form-signin">
+            <h2 class="form-signin-heading">Please log in</h2>
+            <label for="inputEmail" class="sr-only">Email address</label>
+            <input type="email" id="inputEmail" class="form-control" placeholder="Email address" required autofocus>
+            <label for="inputPassword" class="sr-only">Password</label>
+            <input type="password" id="inputPassword" class="form-control" placeholder="Password" required>
+            
+            <button class="btn btn-lg btn-primary btn-block" type="submit">Log in</button>
+            </div>
+          </form>
+        </div>
+        <div id="signin">
+          <div class="container">
+            <form class="form-signin">
+              <h2 class="form-signin-heading">Please sign in</h2>
+              <label for="inputEmail" class="sr-only">Email address</label>
+              <input type="email" id="inputEmail" class="form-control" placeholder="Email address" required autofocus>
+              <label for="inputPassword" class="sr-only">Password</label>
+              <input type="password" id="inputPassword" class="form-control" placeholder="Password" required>
+              <label for="inputPassword" class="sr-only">Repeat Password</label>
+              <input type="password" id="inputPassword" class="form-control" placeholder="Password" required>
+              <button class="btn btn-lg btn-primary btn-block" type="submit">Log in</button>
+            </form>
+          </div>
+        </div>
+        <script>
+          function toggleForm() {
+            var login = document.getElementById("login");
+            var signin = document.getElementById("signin");
+            var button = document.getElementById("toggle-button");
+            if (login.style.display === "none") {
+              login.style.display = "block";
+              signin.style.display = "none";
+              //button.textContent = "Sign in";
+            } else {
+              login.style.display = "none";
+              signin.style.display = "block";
+              //button.textContent = "Log in";
+            }
+          }
+        </script>
+        <div class="container">
+          <button id="toggle-button" onclick="toggleForm()" class="btn btn-lg btn-secondary btn-block" value="ignore">Sign in</button>
+        </div>
+		</body>
+	</html>
