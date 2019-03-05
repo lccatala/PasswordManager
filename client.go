@@ -1,9 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/url"
+	"os"
+	"os/signal"
 	"runtime"
 
 	"github.com/zserge/lorca"
@@ -20,62 +24,60 @@ func startClient(width int, height int) {
 	}
 	defer ui.Close()
 
-	// A simple way to know when UI is ready (uses body.onload event in JS)
-	ui.Bind("start", func() {
-		log.Println("UI is ready")
+	ui.Bind("login", func() {
+		login(ui)
+	})
+
+	ui.Bind("signup", func() {
+		signup(ui)
 	})
 
 	// Load HTML after Go functions are bound to JS
 	html, _ := ioutil.ReadFile("public/login.html")
 	ui.Load("data:text/html," + url.PathEscape(string(html)))
-	<-ui.Done()
+
+	// Wait until the interrupt signal arrives or browser window is closed
+	sigc := make(chan os.Signal)
+	signal.Notify(sigc, os.Interrupt)
+	select {
+	case <-sigc:
+	case <-ui.Done():
+	}
+}
+
+// Establish connection with server
+func connect(email string, password string) {
+	connection, err := net.Dial("tcp", address+":1337")
+	checkError(err)
+	defer connection.Close()
+
+	fmt.Print("Connected to ", connection.RemoteAddr(), "\n")
+
+	fmt.Printf("Client is running...\n")
+
 	/*
-
-		fmt.Printf("Client is running...\n")
-
-		// Establish connection with server
-		connection, err := net.Dial("tcp", address+":1337")
-		checkError(err)
-		defer connection.Close()
-
-		fmt.Print("Connected to ", connection.RemoteAddr(), "\n")
-
 		keyscan := bufio.NewScanner(os.Stdin)
 		netscan := bufio.NewScanner(connection)
-
-		// Input scan
 		for keyscan.Scan() {
 			fmt.Fprintln(connection, keyscan.Text()) // Send input to server
 			netscan.Scan()                           // Scan connection
 			fmt.Printf("Server: " + netscan.Text())  // Show server messag
 		}
-
-		// Data model: number of ticks
-		ticks := uint32(0)
-		// Channel to connect UI events with the background ticking goroutine
-		togglec := make(chan bool)
-		// Bind Go functions to JS
-		ui.Bind("toggle", func() { togglec <- true })
-		ui.Bind("reset", func() {
-			atomic.StoreUint32(&ticks, 0)
-			ui.Eval(`document.querySelector('.timer').innerText = '0'`)
-		})
-
-
-
-		// Start ticker goroutine
-		go func() {
-			t := time.NewTicker(100 * time.Millisecond)
-			for {
-				select {
-				case <-t.C: // Every 100ms increate number of ticks and update UI
-					ui.Eval(fmt.Sprintf(`document.querySelector('.timer').innerText = 0.1*%d`,
-						atomic.AddUint32(&ticks, 1)))
-				case <-togglec: // If paused - wait for another toggle event to unpause
-					<-togglec
-				}
-			}
-		}()
-		<-ui.Done()
 	*/
+}
+
+func login(ui lorca.UI) {
+	email := ui.Eval("getEmail()").String()
+	password := ui.Eval("getPassword()").String()
+	fmt.Print("Logged in\n")
+	fmt.Printf("Email: %s", email)
+	fmt.Printf("\nPassword: %s", password)
+}
+
+func signup(ui lorca.UI) {
+	email := ui.Eval("getEmail()").String()
+	password := ui.Eval("getPassword()").String()
+	fmt.Print("Signed up\n")
+	fmt.Printf("Email: %s", email)
+	fmt.Printf("\nPassword: %s", password)
 }
