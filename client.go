@@ -1,10 +1,16 @@
 package main
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha512"
+	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
-	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
@@ -13,24 +19,23 @@ import (
 	"github.com/zserge/lorca"
 )
 
-func startClient(width int, height int) {
+func startClientUI() {
 	args := []string{}
 	if runtime.GOOS == "linux" {
 		args = append(args, "--class=Lorca")
 	}
-	ui, err := lorca.New("", "", width, height, args...)
+	ui, err := lorca.New("", "", 300, 500, args...)
+	defer ui.Close()
+	ui.Bind("login", func() {
+		getUserData("login", ui)
+	})
+	ui.Bind("signup", func() {
+		getUserData("signup", ui)
+	})
+
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer ui.Close()
-
-	ui.Bind("login", func() {
-		login(ui)
-	})
-
-	ui.Bind("signup", func() {
-		signup(ui)
-	})
 
 	// Load HTML after Go functions are bound to JS
 	html, _ := ioutil.ReadFile("public/login.html")
@@ -43,41 +48,55 @@ func startClient(width int, height int) {
 	case <-sigc:
 	case <-ui.Done():
 	}
+
 }
 
 // Establish connection with server
-func connect(email string, password string) {
-	connection, err := net.Dial("tcp", address+":1337")
+func connect(mode string, email string, password string) {
+
+	// Client that accepts self-signed certificates (for testing only)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+
+	// SHA512 hash of password
+	clientKey := sha512.Sum512([]byte(password))
+	loginKey := clientKey[:32]  // one half for login (256 bits)
+	dataKey := clientKey[32:64] // the other for data (256 bits)
+
+	// Generate public/private key pair for server
+	clientKP, err := rsa.GenerateKey(rand.Reader, 1024)
 	checkError(err)
-	defer connection.Close()
+	clientKP.Precompute() // Speed up it's use with a precomputation
 
-	fmt.Print("Connected to ", connection.RemoteAddr(), "\n")
+	JSONkp, err := json.Marshal(&clientKP) // codificamos con JSON
+	checkError(err)
 
-	fmt.Printf("Client is running...\n")
+	pubKey := clientKP.Public()           // extraemos la clave pública por separado
+	JSONPub, err := json.Marshal(&pubKey) // y codificamos con JSON
+	checkError(err)
 
-	/*
-		keyscan := bufio.NewScanner(os.Stdin)
-		netscan := bufio.NewScanner(connection)
-		for keyscan.Scan() {
-			fmt.Fprintln(connection, keyscan.Text()) // Send input to server
-			netscan.Scan()                           // Scan connection
-			fmt.Printf("Server: " + netscan.Text())  // Show server messag
-		}
-	*/
+	// Prepare data to be sent to server
+	data := url.Values{}                     // struct to store the values
+	data.Set("command", string(mode))        // command (string)
+	data.Set("email", email)                 // email (string)
+	data.Set("password", encode64(loginKey)) // password in base64
+
+	// Compress and code the private key
+	data.Set("pubKey", encode64(compress(JSONPub)))
+
+	// Compress, cypher and code the private key
+	data.Set("privKey", encode64(encrypt(compress(JSONkp), dataKey)))
+
+	response, err := client.PostForm("https://localhost:10443", data) // Send data via POST
+	checkError(err)
+	io.Copy(os.Stdout, response.Body) // Show response body
+	fmt.Println()
 }
 
-func login(ui lorca.UI) {
+func getUserData(mode string, ui lorca.UI) {
 	email := ui.Eval("getEmail()").String()
 	password := ui.Eval("getPassword()").String()
-	fmt.Print("Logged in\n")
-	fmt.Printf("Email: %s", email)
-	fmt.Printf("\nPassword: %s", password)
-}
-
-func signup(ui lorca.UI) {
-	email := ui.Eval("getEmail()").String()
-	password := ui.Eval("getPassword()").String()
-	fmt.Print("Signed up\n")
-	fmt.Printf("Email: %s", email)
-	fmt.Printf("\nPassword: %s", password)
+	connect(mode, email, password)
 }
