@@ -36,15 +36,6 @@ func handler(w http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
 	w.Header().Set("Content-Type", "text/plain") // Standard header
 
-	switch req.Form.Get("command") {
-	case SIGNUP:
-		handleSignup(req)
-	case LOGIN:
-
-	}
-}
-
-func handleSignup(req *http.Request) {
 	user := User{}
 	user.Name = req.Form.Get("name")
 	user.Email = req.Form.Get("email")
@@ -61,15 +52,32 @@ func handleSignup(req *http.Request) {
 	// Get password hash
 	password := decode64(req.Form.Get("password"))
 	user.Hash, _ = scrypt.Key(password, user.Salt, 16384, 8, 1, 32)
-	if !userExists(user.Name) {
+
+	switch req.Form.Get("command") {
+	case SIGNUP:
+		handleSignup(user)
+	case LOGIN:
 
 	}
+}
 
-	writeToFile(user)
+func handleSignup(user User) {
+	if !userExists(user.Name) {
+		writeToFile(user)
+	} else {
+		fmt.Printf("User " + user.Name + " already exists\n")
+	}
 }
 
 // Check if username is already taken
 func userExists(name string) bool {
+	files, err := ioutil.ReadDir("users")
+	checkError(err)
+	for _, f := range files {
+		if f.Name() == name+".json" {
+			return true
+		}
+	}
 	return false
 }
 
