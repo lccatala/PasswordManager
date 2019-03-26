@@ -6,8 +6,6 @@ import (
 	"crypto/sha512"
 	"crypto/tls"
 	"encoding/json"
-	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -48,11 +46,10 @@ func startClientUI() {
 	case <-sigc:
 	case <-ui.Done():
 	}
-
 }
 
 // Establish connection with server
-func connect(mode string, email string, password string) {
+func connect(command string, name string, email string, password string) {
 
 	// Client that accepts self-signed certificates (for testing only)
 	tr := &http.Transport{
@@ -62,41 +59,40 @@ func connect(mode string, email string, password string) {
 
 	// SHA512 hash of password
 	clientKey := sha512.Sum512([]byte(password))
-	loginKey := clientKey[:32]  // one half for login (256 bits)
-	dataKey := clientKey[32:64] // the other for data (256 bits)
+	loginKey := clientKey[:32]  // first half for login (256 bits)
+	dataKey := clientKey[32:64] // second half for data (256 bits)
 
 	// Generate public/private key pair for server
 	clientKP, err := rsa.GenerateKey(rand.Reader, 1024)
 	checkError(err)
-	clientKP.Precompute() // Speed up it's use with a precomputation
+	clientKP.Precompute() // Speed up future operations
 
-	JSONkp, err := json.Marshal(&clientKP) // codificamos con JSON
+	// Format key pair as JSON
+	JSONkp, err := json.Marshal(&clientKP)
 	checkError(err)
 
-	pubKey := clientKP.Public()           // extraemos la clave pública por separado
-	JSONPub, err := json.Marshal(&pubKey) // y codificamos con JSON
+	// Format public key as JSON
+	pubKey := clientKP.Public()
+	JSONPub, err := json.Marshal(&pubKey)
 	checkError(err)
 
 	// Prepare data to be sent to server
-	data := url.Values{}                     // struct to store the values
-	data.Set("command", string(mode))        // command (string)
-	data.Set("email", email)                 // email (string)
-	data.Set("password", encode64(loginKey)) // password in base64
-
-	// Compress and code the private key
+	data := url.Values{}
+	data.Set("command", command)
+	data.Set("name", name)
+	data.Set("email", email)
+	data.Set("password", encode64(loginKey))
 	data.Set("pubKey", encode64(compress(JSONPub)))
-
-	// Compress, cypher and code the private key
 	data.Set("privKey", encode64(encrypt(compress(JSONkp), dataKey)))
 
-	response, err := client.PostForm("https://localhost:10443", data) // Send data via POST
+	// Send data via POST
+	_, err = client.PostForm("https://localhost:10443", data)
 	checkError(err)
-	io.Copy(os.Stdout, response.Body) // Show response body
-	fmt.Println()
 }
 
-func getUserData(mode string, ui lorca.UI) {
+func getUserData(command string, ui lorca.UI) {
 	email := ui.Eval("getEmail()").String()
 	password := ui.Eval("getPassword()").String()
-	connect(mode, email, password)
+	name := ui.Eval("getUsername()").String()
+	connect(command, name, email, password)
 }

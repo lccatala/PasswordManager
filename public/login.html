@@ -28,11 +28,9 @@
           <div class="container">
             <form class="form-signup">
               <h2 class="form-signup-heading">Please sign up</h2>
-              <label for="inputEmail" class="sr-only">Email address</label>
+              <input type="text" id="inputUserSignup" class="form-control" placeholder="User" required autofocus>
               <input type="email" id="inputEmailSignup" class="form-control" placeholder="Email address" required autofocus>
-              <label for="inputPassword" class="sr-only">Password</label>
               <input type="password" id="inputPasswordSignup1" class="form-control" placeholder="Password" required>
-              <label for="inputPassword" class="sr-only">Repeat Password</label>
               <input type="password" id="inputPasswordSignup2" class="form-control" placeholder="Password" required>
               <button id="signup-button" class="btn btn-lg btn-primary btn-block" type="submit">Sign up</button>
             </form>
@@ -40,9 +38,10 @@
         </div>
         <script>
           var mode = "signup";
-          var inputEmail    = document.getElementById('inputEmailLogin')
-          var inputPassword = document.getElementById('inputPasswordLogin')
-          const loginButton = document.getElementById('login-button')
+          var inputUser      = document.getElementById('inputUserSignup')
+          var inputEmail     = document.getElementById('inputEmailLogin')
+          var inputPassword  = document.getElementById('inputPasswordLogin')
+          const loginButton  = document.getElementById('login-button')
           const signupButton = document.getElementById('signup-button')
 
           function toggleForm() {
@@ -68,6 +67,13 @@
               return document.getElementById('inputEmailLogin').value
             } else {
               return document.getElementById('inputEmailSignup').value
+            }
+          }
+          function getUsername() {
+            if (mode == 'login') {
+              return document.getElementById('inputUserLogin').value
+            } else {
+              return document.getElementById('inputUserSignup').value
             }
           }
           

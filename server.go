@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 
 	"golang.org/x/crypto/scrypt"
@@ -13,12 +14,13 @@ import (
 // User data type
 type User struct {
 	Email string
+	Name  string
 	Hash  []byte            // Password hash
 	Salt  []byte            // Password salt
 	Data  map[string]string // Additional data
 }
 
-// Server response
+// Response from server
 type Response struct {
 	Ok      bool
 	Message string
@@ -36,27 +38,47 @@ func handler(w http.ResponseWriter, req *http.Request) {
 
 	switch req.Form.Get("command") {
 	case SIGNUP:
-		user := User{}
-		user.Email = req.Form.Get("email")
-		fmt.Println("Email is " + user.Email)
-
-		// 16 byte (128 bit) random salt
-		user.Salt = make([]byte, 16)
-		rand.Read(user.Salt)
-
-		user.Data = make(map[string]string)
-
-		// Get private and public keys
-		user.Data["public"] = req.Form.Get("pubKey")
-		user.Data["private"] = req.Form.Get("privKey")
-
-		// Password hash
-		password := decode64(req.Form.Get("password"))
-		user.Hash, _ = scrypt.Key(password, user.Salt, 16384, 8, 1, 32)
-		respond(w, true, "Attempted to register with email "+user.Email)
-		// TODO check if user already exists
+		handleSignup(req)
 	case LOGIN:
+
 	}
+}
+
+func handleSignup(req *http.Request) {
+	user := User{}
+	user.Name = req.Form.Get("name")
+	user.Email = req.Form.Get("email")
+
+	// 16 byte (128 bit) random salt
+	user.Salt = make([]byte, 16)
+	rand.Read(user.Salt)
+
+	// Get private and public keys
+	user.Data = make(map[string]string)
+	user.Data["public"] = req.Form.Get("pubKey")
+	user.Data["private"] = req.Form.Get("privKey")
+
+	// Get password hash
+	password := decode64(req.Form.Get("password"))
+	user.Hash, _ = scrypt.Key(password, user.Salt, 16384, 8, 1, 32)
+	if !userExists(user.Name) {
+
+	}
+
+	writeToFile(user)
+}
+
+// Check if username is already taken
+func userExists(name string) bool {
+	return false
+}
+
+// Write user struct to json file
+func writeToFile(user User) {
+	fileData, err := json.MarshalIndent(user, "", "  ")
+	checkError(err)
+	err = ioutil.WriteFile("users/"+user.Name+".json", fileData, 0644)
+	checkError(err)
 }
 
 // Write response in JSON format

@@ -6,13 +6,6 @@ import (
 	"strings"
 )
 
-var address = "localhost"
-
-// TODO read server configuration from text file
-func readServerConfig() {
-
-}
-
 func main() {
 	if len(os.Args) > 1 {
 		switch strings.ToLower(os.Args[1]) {

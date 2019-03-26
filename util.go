@@ -11,9 +11,11 @@ import (
 	"io"
 )
 
-// Login and register modes (log in and sign up)
-const LOGIN = "login"
-const SIGNUP = "signup"
+// Login and register modes (login and sign up)
+const (
+	LOGIN  = "login"
+	SIGNUP = "signup"
+)
 
 // Error handling
 func checkError(e error) {
@@ -24,32 +26,41 @@ func checkError(e error) {
 
 // Encrypt with AES, adding IV at the beggining
 func encrypt(data, key []byte) (out []byte) {
-	out = make([]byte, len(data)+16)    // reservamos espacio para el IV al principio
-	rand.Read(out[:16])                 // generamos el IV
-	blk, err := aes.NewCipher(key)      // cifrador en bloque (AES), usa key
-	checkError(err)                     // comprobamos el error
-	ctr := cipher.NewCTR(blk, out[:16]) // cifrador en flujo: modo CTR, usa IV
-	ctr.XORKeyStream(out[16:], data)    // ciframos los datos
+	out = make([]byte, len(data)+16) // Allocate space for IV + data
+	rand.Read(out[:16])              // generate IV
+	blk, err := aes.NewCipher(key)   // AES block cipher, requires a key
+	checkError(err)
+
+	ctr := cipher.NewCTR(blk, out[:16]) // Flow (stream?) cipher in CTR mode, requires IV
+	ctr.XORKeyStream(out[16:], data)    // Encrypt the data
 	return
 }
 
+// Compress
 func compress(data []byte) []byte {
-	var b bytes.Buffer      // b contendrá los datos comprimidos (tamaño variable)
-	w := zlib.NewWriter(&b) // escritor que comprime sobre b
-	w.Write(data)           // escribimos los datos
-	w.Close()               // cerramos el escritor (buffering)
-	return b.Bytes()        // devolvemos los datos comprimidos
+	var b bytes.Buffer
+
+	// Use a writer to compress over b
+	w := zlib.NewWriter(&b)
+	w.Write(data)
+	w.Close()
+
+	return b.Bytes()
 }
 
+// Decompress
 func decompress(data []byte) []byte {
-	var b bytes.Buffer // b contendrá los datos descomprimidos
+	var b bytes.Buffer
 
-	r, err := zlib.NewReader(bytes.NewReader(data)) // lector descomprime al leer
+	// The reader decompresses while reading
+	r, err := zlib.NewReader(bytes.NewReader(data))
+	checkError(err)
 
-	checkError(err)  // comprobamos el error
-	io.Copy(&b, r)   // copiamos del descompresor (r) al buffer (b)
-	r.Close()        // cerramos el lector (buffering)
-	return b.Bytes() // devolvemos los datos descomprimidos
+	// Copy from decompressor to buffer
+	io.Copy(&b, r)
+	r.Close()
+
+	return b.Bytes()
 }
 
 // []byte (base64) to string
