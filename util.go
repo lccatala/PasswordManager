@@ -8,7 +8,9 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"io"
+	"io/ioutil"
 )
 
 // User data type
@@ -88,4 +90,21 @@ func decode64(s string) []byte {
 	b, err := base64.StdEncoding.DecodeString(s)
 	checkError(err)
 	return b
+}
+
+// Write user struct to json file
+func writeUser(user User) {
+	// TODO encrypt user data before saving it to file
+	fileData, err := json.MarshalIndent(user, "", "  ")
+	checkError(err)
+	err = ioutil.WriteFile("users/"+user.Name+".json", fileData, 0644)
+	checkError(err)
+}
+
+// Read user struct from json file
+func readUser(username string) (User, bool) {
+	user := User{}
+	fileData, err := ioutil.ReadFile(username + ".json")
+	json.Unmarshal([]byte(fileData), &user)
+	return user, err != nil
 }

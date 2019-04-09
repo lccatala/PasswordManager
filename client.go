@@ -65,7 +65,7 @@ func connect(command string, name string, email string, password string) {
 	// Generate public/private key pair for server
 	clientKP, err := rsa.GenerateKey(rand.Reader, 1024)
 	checkError(err)
-	clientKP.Precompute() // Speed up future operations
+	clientKP.Precompute()
 
 	// Format key pair as JSON
 	JSONkp, err := json.Marshal(&clientKP)

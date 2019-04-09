@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
@@ -47,21 +48,25 @@ func handler(w http.ResponseWriter, req *http.Request) {
 }
 
 func loginUser(user User) {
-	if authUser(user) {
-
+	fileUser, correct := authUser(user)
+	if correct {
+		fmt.Printf("Logged in with user " + fileUser.Name)
 	} else {
-		// TODO: show "user does not exist" message to the client
 		fmt.Printf("Error: could not log in user " + user.Name)
 	}
 }
 
-func authUser(user User) bool {
-
+func authUser(user User) (User, bool) {
+	fileUser, exists := readUser(user.Name)
+	return fileUser,
+		(exists &&
+			user.Email == fileUser.Email &&
+			bytes.Equal(user.Hash, fileUser.Hash))
 }
 
 func signUpUser(user User) {
 	if !userExists(user.Name) {
-		writeToFile(user)
+		writeUser(user)
 	} else {
 		fmt.Printf("User " + user.Name + " already exists\n")
 	}
@@ -77,15 +82,6 @@ func userExists(name string) bool {
 		}
 	}
 	return false
-}
-
-// Write user struct to json file
-func writeToFile(user User) {
-	// TODO encrypt user data before saving it to file
-	fileData, err := json.MarshalIndent(user, "", "  ")
-	checkError(err)
-	err = ioutil.WriteFile("users/"+user.Name+".json", fileData, 0644)
-	checkError(err)
 }
 
 // Write response in JSON format
