@@ -11,21 +11,6 @@ import (
 	"golang.org/x/crypto/scrypt"
 )
 
-// User data type
-type User struct {
-	Email string
-	Name  string
-	Hash  []byte            // Password hash
-	Salt  []byte            // Password salt
-	Data  map[string]string // Additional data
-}
-
-// Response from server
-type Response struct {
-	Ok      bool
-	Message string
-}
-
 func startServer() {
 	fmt.Println("Server started")
 	http.HandleFunc("/", handler)
@@ -55,13 +40,26 @@ func handler(w http.ResponseWriter, req *http.Request) {
 
 	switch req.Form.Get("command") {
 	case SIGNUP:
-		handleSignup(user)
+		signUpUser(user)
 	case LOGIN:
-
+		loginUser(user)
 	}
 }
 
-func handleSignup(user User) {
+func loginUser(user User) {
+	if authUser(user) {
+
+	} else {
+		// TODO: show "user does not exist" message to the client
+		fmt.Printf("Error: could not log in user " + user.Name)
+	}
+}
+
+func authUser(user User) bool {
+
+}
+
+func signUpUser(user User) {
 	if !userExists(user.Name) {
 		writeToFile(user)
 	} else {
@@ -83,6 +81,7 @@ func userExists(name string) bool {
 
 // Write user struct to json file
 func writeToFile(user User) {
+	// TODO encrypt user data before saving it to file
 	fileData, err := json.MarshalIndent(user, "", "  ")
 	checkError(err)
 	err = ioutil.WriteFile("users/"+user.Name+".json", fileData, 0644)

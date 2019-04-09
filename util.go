@@ -11,7 +11,22 @@ import (
 	"io"
 )
 
-// Login and register modes (login and sign up)
+// User data type
+type User struct {
+	Email string
+	Name  string
+	Hash  []byte            // Password hash
+	Salt  []byte            // Password salt
+	Data  map[string]string // Additional data
+}
+
+// Response from server
+type Response struct {
+	Ok      bool
+	Message string
+}
+
+// Login and signup modes
 const (
 	LOGIN  = "login"
 	SIGNUP = "signup"
