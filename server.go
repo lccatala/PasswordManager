@@ -8,21 +8,32 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
+
+	"./util"
 
 	"golang.org/x/crypto/scrypt"
 )
 
+var KEY string
+var users map[string]bool
+
 func startServer() {
-	fmt.Println("Server started")
+	util.LogInfo("Starting server...")
+
+	KEY = os.Args[2]
+	util.ReadAllUsers()
+
 	http.HandleFunc("/", handler)
-	checkError(http.ListenAndServeTLS(":10443", "cert.pem", "key.pem", nil))
+	util.LogInfo("Done")
+	util.CheckError(http.ListenAndServeTLS(":10443", "cert.pem", "key.pem", nil))
 }
 
 func handler(w http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
 	w.Header().Set("Content-Type", "text/plain") // Standard header
 
-	user := User{}
+	user := util.User{}
 	user.Name = req.Form.Get("name")
 	user.Email = req.Form.Get("email")
 
@@ -36,18 +47,18 @@ func handler(w http.ResponseWriter, req *http.Request) {
 	user.Data["private"] = req.Form.Get("privKey")
 
 	// Get password hash
-	password := decode64(req.Form.Get("password"))
+	password := util.Decode64(req.Form.Get("password"))
 	user.Hash, _ = scrypt.Key(password, user.Salt, 16384, 8, 1, 32)
 
 	switch req.Form.Get("command") {
-	case SIGNUP:
+	case util.SIGNUP:
 		signUpUser(user)
-	case LOGIN:
+	case util.LOGIN:
 		loginUser(user)
 	}
 }
 
-func loginUser(user User) {
+func loginUser(user util.User) {
 	fileUser, correct := authUser(user)
 	if correct {
 		fmt.Printf("Logged in with user " + fileUser.Name)
@@ -56,17 +67,18 @@ func loginUser(user User) {
 	}
 }
 
-func authUser(user User) (User, bool) {
-	fileUser, exists := readUser(user.Name)
+func authUser(user util.User) (util.User, bool) {
+	// TODO: we need to log in with username instead of email
+	fileUser, exists := util.ReadUser(user.Name)
 	return fileUser,
-		(exists &&
+		(exists && // TODO: maybe this is not the appropiate way of authenticating
 			user.Email == fileUser.Email &&
 			bytes.Equal(user.Hash, fileUser.Hash))
 }
 
-func signUpUser(user User) {
+func signUpUser(user util.User) {
 	if !userExists(user.Name) {
-		writeUser(user)
+		util.WriteUser(user)
 	} else {
 		fmt.Printf("User " + user.Name + " already exists\n")
 	}
@@ -75,7 +87,7 @@ func signUpUser(user User) {
 // Check if username is already taken
 func userExists(name string) bool {
 	files, err := ioutil.ReadDir("users")
-	checkError(err)
+	util.CheckError(err)
 	for _, f := range files {
 		if f.Name() == name+".json" {
 			return true
@@ -86,8 +98,8 @@ func userExists(name string) bool {
 
 // Write response in JSON format
 func respond(w io.Writer, ok bool, message string) {
-	response := Response{Ok: ok, Message: message}
+	response := util.Response{Ok: ok, Message: message}
 	JSONResponse, err := json.Marshal(&response)
-	checkError(err)
+	util.CheckError(err)
 	w.Write(JSONResponse)
 }

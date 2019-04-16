@@ -10,7 +10,11 @@ func main() {
 	if len(os.Args) > 1 {
 		switch strings.ToLower(os.Args[1]) {
 		case "server":
-			startServer()
+			if len(os.Args) > 2 {
+				startServer()
+			} else {
+				fmt.Printf("Error: invaild number of arguments.\n\n go run *.gp server ServerKey\n\n")
+			}
 		case "client":
 			startClientUI()
 		}
