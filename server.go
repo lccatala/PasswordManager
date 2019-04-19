@@ -1,39 +1,59 @@
 package main
 
 import (
-	"bytes"
 	"crypto/rand"
 	"encoding/json"
-	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
-
-	"./util"
 
 	"golang.org/x/crypto/scrypt"
 )
 
-var KEY string
-var users map[string]bool
+// User data type
+type User struct {
+	Email string
+	Name  string
+	Hash  []byte            // Password hash
+	Salt  []byte            // Password salt
+	Data  map[string]string // Additional data
+}
+
+// Response from server
+type Response struct {
+	Ok      bool
+	Message string
+}
+
+// Login and signup modes
+const (
+	LOGIN  = "login"
+	SIGNUP = "signup"
+)
+
+// KEY for encrypting user list
+var KEY []byte
+
+// List of signed up users
+var users map[string]int
 
 func startServer() {
-	util.LogInfo("Starting server...")
+	LogInfo("Starting server...")
 
-	KEY = os.Args[2]
-	util.ReadAllUsers()
+	KEY = parseKey([]byte(os.Args[2]))
+	users = ReadAllUsers(KEY)
 
 	http.HandleFunc("/", handler)
-	util.LogInfo("Done")
-	util.CheckError(http.ListenAndServeTLS(":10443", "cert.pem", "key.pem", nil))
+	LogInfo("Done")
+	err := http.ListenAndServeTLS(":10443", "cert.pem", "key.pem", nil)
+	CheckError(err)
 }
 
 func handler(w http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
 	w.Header().Set("Content-Type", "text/plain") // Standard header
 
-	user := util.User{}
+	user := User{}
 	user.Name = req.Form.Get("name")
 	user.Email = req.Form.Get("email")
 
@@ -47,59 +67,53 @@ func handler(w http.ResponseWriter, req *http.Request) {
 	user.Data["private"] = req.Form.Get("privKey")
 
 	// Get password hash
-	password := util.Decode64(req.Form.Get("password"))
+	password := Decode64(req.Form.Get("password"))
 	user.Hash, _ = scrypt.Key(password, user.Salt, 16384, 8, 1, 32)
 
 	switch req.Form.Get("command") {
-	case util.SIGNUP:
+	case SIGNUP:
 		signUpUser(user)
-	case util.LOGIN:
+	case LOGIN:
 		loginUser(user)
 	}
 }
 
-func loginUser(user util.User) {
-	fileUser, correct := authUser(user)
-	if correct {
-		fmt.Printf("Logged in with user " + fileUser.Name)
+func loginUser(user User) {
+	storedUser := ReadUser(user.Name)
+
+	if storedUser.Name == user.Name {
+		LogInfo("Logged in with user " + user.Name)
 	} else {
-		fmt.Printf("Error: could not log in user " + user.Name)
+		LogInfo("Could not log in user " + user.Name)
 	}
 }
 
-func authUser(user util.User) (util.User, bool) {
-	// TODO: we need to log in with username instead of email
-	fileUser, exists := util.ReadUser(user.Name)
-	return fileUser,
-		(exists && // TODO: maybe this is not the appropiate way of authenticating
-			user.Email == fileUser.Email &&
-			bytes.Equal(user.Hash, fileUser.Hash))
-}
-
-func signUpUser(user util.User) {
-	if !userExists(user.Name) {
-		util.WriteUser(user)
+func signUpUser(user User) {
+	if users[user.Name] != 0 {
+		LogInfo("User " + user.Name + " already exists and cannot be signed up")
 	} else {
-		fmt.Printf("User " + user.Name + " already exists\n")
+		WriteUser(user)
+		LogInfo("Signed up user " + user.Name)
 	}
-}
-
-// Check if username is already taken
-func userExists(name string) bool {
-	files, err := ioutil.ReadDir("users")
-	util.CheckError(err)
-	for _, f := range files {
-		if f.Name() == name+".json" {
-			return true
-		}
-	}
-	return false
 }
 
 // Write response in JSON format
 func respond(w io.Writer, ok bool, message string) {
-	response := util.Response{Ok: ok, Message: message}
+	response := Response{Ok: ok, Message: message}
 	JSONResponse, err := json.Marshal(&response)
-	util.CheckError(err)
+	CheckError(err)
 	w.Write(JSONResponse)
+}
+
+// Modify key so it has an appropiate length
+func parseKey(key []byte) []byte {
+	if len(key) > 16 {
+		return key[0:16]
+	} else if len(key) < 16 {
+		var l = len(key)
+		for i := 0; i < 16-l; i++ {
+			key = append(key, key[i])
+		}
+	}
+	return key
 }

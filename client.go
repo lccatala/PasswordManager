@@ -14,8 +14,6 @@ import (
 	"os/signal"
 	"runtime"
 
-	"./util"
-
 	"github.com/zserge/lorca"
 )
 
@@ -66,30 +64,30 @@ func connect(command string, name string, email string, password string) {
 
 	// Generate public/private key pair for server
 	clientKP, err := rsa.GenerateKey(rand.Reader, 1024)
-	util.CheckError(err)
+	CheckError(err)
 	clientKP.Precompute()
 
 	// Format key pair as JSON
 	JSONkp, err := json.Marshal(&clientKP)
-	util.CheckError(err)
+	CheckError(err)
 
 	// Format public key as JSON
 	pubKey := clientKP.Public()
 	JSONPub, err := json.Marshal(&pubKey)
-	util.CheckError(err)
+	CheckError(err)
 
 	// Prepare data to be sent to server
 	data := url.Values{}
 	data.Set("command", command)
 	data.Set("name", name)
 	data.Set("email", email)
-	data.Set("password", util.Encode64(loginKey))
-	data.Set("pubKey", util.Encode64(util.Compress(JSONPub)))
-	data.Set("privKey", util.Encode64(util.Encrypt(util.Compress(JSONkp), dataKey)))
+	data.Set("password", Encode64(loginKey))
+	data.Set("pubKey", Encode64(Compress(JSONPub)))
+	data.Set("privKey", Encode64(Encrypt(Compress(JSONkp), dataKey)))
 
 	// Send data via POST
 	_, err = client.PostForm("https://localhost:10443", data)
-	util.CheckError(err)
+	CheckError(err)
 }
 
 func getUserData(command string, ui lorca.UI) {
