@@ -9,7 +9,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -75,10 +74,11 @@ func Decode64(s string) []byte {
 
 // WriteUser writes a user struct to a json file
 func WriteUser(user User) {
-	// TODO encrypt user data before saving it to file
+
+	// Save to user's individual JSON
 	fileData, err := json.MarshalIndent(user, "", "  ")
 	CheckError(err)
-	err = ioutil.WriteFile("users/"+user.Name+".json", fileData, 0644)
+	err = ioutil.WriteFile("users/"+string(Encrypt([]byte(user.Name), KEY))+".json", fileData, 0644)
 	CheckError(err)
 
 	// Add user to users list
@@ -131,31 +131,4 @@ func WriteAllUsers() {
 		_, err = f.Write([]byte("\n"))
 		CheckError(err)
 	}
-}
-
-const (
-	infoColor    = "\033[1;34m%s\033[0m"
-	warningColor = "\033[1;33m%s\033[0m"
-	errorColor   = "\033[1;31m%s\033[0m"
-	traceColor   = "\033[0;36m%s\033[0m"
-)
-
-func LogError(message string) {
-	fmt.Printf(errorColor, "[ERROR]: "+message)
-	fmt.Println()
-}
-
-func LogWarning(message string) {
-	fmt.Printf(warningColor, "[WARN]: "+message)
-	fmt.Println()
-}
-
-func LogInfo(message string) {
-	fmt.Printf(infoColor, "[INFO]: "+message)
-	fmt.Println()
-}
-
-func LogTrace(message string) {
-	fmt.Printf(traceColor, "[TRACE]: "+message)
-	fmt.Println()
 }
