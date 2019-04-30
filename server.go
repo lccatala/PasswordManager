@@ -1,13 +1,10 @@
 package main
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"io"
 	"net/http"
 	"os"
-
-	"golang.org/x/crypto/scrypt"
 )
 
 // Response from server
@@ -45,21 +42,7 @@ func handler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain") // Standard header
 
 	user := User{}
-	user.Name = req.Form.Get("name")
-	user.Email = req.Form.Get("email")
-
-	// 16 byte (128 bit) random salt
-	user.Salt = make([]byte, 16)
-	rand.Read(user.Salt)
-
-	// Get private and public keys
-	user.Data = make(map[string]string)
-	user.Data["public"] = req.Form.Get("pubKey")
-	user.Data["private"] = req.Form.Get("privKey")
-
-	// Get password hash
-	password := Decode64(req.Form.Get("password"))
-	user.Hash, _ = scrypt.Key(password, user.Salt, 16384, 8, 1, 32)
+	user.getData(req)
 
 	switch req.Form.Get("command") {
 	case SIGNUP:
@@ -77,7 +60,7 @@ func respond(w io.Writer, ok bool, message string) {
 	w.Write(JSONResponse)
 }
 
-// Modify key so it has an appropiate length
+// Modify server key so it has an appropiate length
 func parseKey(key []byte) []byte {
 	if len(key) > 16 {
 		return key[0:16]
