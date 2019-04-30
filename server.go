@@ -26,7 +26,7 @@ const (
 var KEY []byte
 
 // List of signed up users
-var users map[string]int
+var users map[string]bool
 
 func startServer() {
 	LogInfo("Starting server...")

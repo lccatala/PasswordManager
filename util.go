@@ -28,8 +28,18 @@ func Encrypt(data, key []byte) (out []byte) {
 	blk, err := aes.NewCipher(key)   // AES block cipher, requires a key
 	CheckError(err)
 
-	ctr := cipher.NewCTR(blk, out[:16]) // Flow (stream?) cipher in CTR mode, requires IV
+	ctr := cipher.NewCTR(blk, out[:16]) // Cipher in CTR mode, requires IV
 	ctr.XORKeyStream(out[16:], data)    // Encrypt the data
+	return
+}
+
+// Decrypt decrypts AES-encrypted byte arrays in CTR mode
+func Decrypt(data, key []byte) (out []byte) {
+	out = make([]byte, len(data)-16)
+	blk, err := aes.NewCipher(key)
+	CheckError(err)
+	ctr := cipher.NewCTR(blk, data[:16])
+	ctr.XORKeyStream(out, data[16:])
 	return
 }
 
@@ -72,27 +82,6 @@ func Decode64(s string) []byte {
 	return b
 }
 
-// WriteUser writes a user struct to a json file
-func WriteUser(user User) {
-
-	// Save to user's individual JSON
-	fileData, err := json.MarshalIndent(user, "", "  ")
-	CheckError(err)
-	err = ioutil.WriteFile("users/"+string(Encrypt([]byte(user.Name), KEY))+".json", fileData, 0644)
-	CheckError(err)
-
-	// Add user to users list
-	f, err := os.OpenFile("users/users.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	CheckError(err)
-	defer f.Close()
-
-	data := Encrypt([]byte(user.Name), KEY)
-	_, err = f.Write(data)
-	CheckError(err)
-	_, err = f.Write([]byte("\n"))
-	CheckError(err)
-}
-
 // ReadUser reads a user struct from a json file
 func ReadUser(username string) User {
 	user := User{}
@@ -102,33 +91,17 @@ func ReadUser(username string) User {
 }
 
 // ReadAllUsers reads all users contained in users/users.txt to the users map
-func ReadAllUsers(k []byte) (users map[string]int) {
-	users = make(map[string]int)
+func ReadAllUsers(k []byte) (users map[string]bool) {
+	users = make(map[string]bool)
 	file, err := os.Open("users/users.txt")
 	CheckError(err)
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 
-	id := 1
 	for scanner.Scan() {
-		users[scanner.Text()] = id
-		id++
+		name := Decrypt([]byte(scanner.Text()), KEY)
+		users[string(name)] = true
 	}
 	return
-}
-
-func WriteAllUsers() {
-	f, err := os.OpenFile("users/tempusers.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	CheckError(err)
-	defer f.Close()
-
-	for k := range users {
-		LogTrace("Writing user " + k + " as " + string(Encrypt([]byte(k), KEY)))
-		data := Encrypt([]byte(k), KEY)
-		_, err = f.Write(data)
-		CheckError(err)
-		_, err = f.Write([]byte("\n"))
-		CheckError(err)
-	}
 }
