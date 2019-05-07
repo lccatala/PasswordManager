@@ -9,21 +9,25 @@ const (
 	traceColor   = "\033[0;36m%s\033[0m"
 )
 
+// LogError logs in a red color. Meant for error messages
 func LogError(message string) {
 	fmt.Printf(errorColor, "[ERROR]: "+message)
 	fmt.Println()
 }
 
+// LogWarning logs in a yellow color. Meant for unexpected or suspicious behaviour messages
 func LogWarning(message string) {
-	fmt.Printf(warningColor, "[WARN]: "+message)
+	fmt.Printf(warningColor, "[WARN]:  "+message)
 	fmt.Println()
 }
 
+// LogInfo logs in a dark blue color. Meant for control messages
 func LogInfo(message string) {
-	fmt.Printf(infoColor, "[INFO]: "+message)
+	fmt.Printf(infoColor, "[INFO]:  "+message)
 	fmt.Println()
 }
 
+// LogTrace logs in a light blue color. Meant for debugging messages
 func LogTrace(message string) {
 	fmt.Printf(traceColor, "[TRACE]: "+message)
 	fmt.Println()

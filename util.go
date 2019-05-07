@@ -90,7 +90,7 @@ func ReadAllUsers(k []byte) (users map[string]bool) {
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
-		name := Decrypt([]byte(scanner.Text()), KEY)
+		name := scanner.Text() //Decrypt([]byte(scanner.Text()), k)
 		users[string(name)] = true
 	}
 	return

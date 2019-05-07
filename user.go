@@ -40,13 +40,14 @@ func (user *User) Login() (success bool, message string) {
 
 // Signup creates a new user with the data of the one that calls it
 func (user *User) Signup() (success bool, message string) {
-	if users[user.Name] {
-		message = "User " + user.Name + " already exists and cannot be signed up"
+	if users[user.UUID.String()] {
 		success = false
+		message = "User " + user.Name + " already exists and cannot be signed up"
 	} else {
-		message = "Signed up user " + user.Name
 		success = true
 		user.Write()
+		users[user.UUID.String()] = true
+		message = "Signed up user " + user.Name
 	}
 	LogInfo(message)
 	return
@@ -58,6 +59,7 @@ func (user *User) EncryptFields() {
 
 	user.Email = string(Encrypt([]byte(user.Email), KEY))
 	user.Name = string(Encrypt([]byte(user.Name), KEY))
+	user.Hash = Encrypt([]byte(user.Hash), KEY)
 
 	for k, v := range user.Passwords {
 		user.Passwords[k] = string(Encrypt([]byte(v), KEY))
@@ -65,7 +67,7 @@ func (user *User) EncryptFields() {
 }
 
 // Read reads from a json file into it's calling user
-func (user *User) Read(username string) {
+func (user *User) Read(uuid string) {
 	fileData, _ := ioutil.ReadFile("users/" + uuid + ".json")
 	json.Unmarshal([]byte(fileData), &user)
 }
@@ -84,7 +86,7 @@ func (user *User) Write() {
 	f, err := os.OpenFile("users/users.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	CheckError(err)
 	defer f.Close()
-	data := Encrypt([]byte(user.Name), KEY)
+	data := []byte(user.UUID.String())
 	_, err = f.Write(data)
 	CheckError(err)
 	_, err = f.Write([]byte("\n"))
