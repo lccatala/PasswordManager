@@ -8,9 +8,7 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
-	"encoding/json"
 	"io"
-	"io/ioutil"
 	"os"
 )
 
@@ -80,14 +78,6 @@ func Decode64(s string) []byte {
 	b, err := base64.StdEncoding.DecodeString(s)
 	CheckError(err)
 	return b
-}
-
-// ReadUser reads a user struct from a json file
-func ReadUser(username string) User {
-	user := User{}
-	fileData, _ := ioutil.ReadFile("users/" + username + ".json")
-	json.Unmarshal([]byte(fileData), &user)
-	return user
 }
 
 // ReadAllUsers reads all users contained in users/users.txt to the users map

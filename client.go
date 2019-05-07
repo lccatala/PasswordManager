@@ -25,10 +25,10 @@ func startClientUI() {
 	ui, err := lorca.New("", "", 300, 500, args...)
 	defer ui.Close()
 	ui.Bind("login", func() {
-		getUserData("login", ui)
+		sendFormData("login", ui)
 	})
 	ui.Bind("signup", func() {
-		getUserData("signup", ui)
+		sendFormData("signup", ui)
 	})
 
 	if err != nil {
@@ -90,7 +90,7 @@ func connect(command string, name string, email string, password string) {
 	CheckError(err)
 }
 
-func getUserData(command string, ui lorca.UI) {
+func sendFormData(command string, ui lorca.UI) {
 	email := ui.Eval("getEmail()").String()
 	password := ui.Eval("getPassword()").String()
 	name := ui.Eval("getUsername()").String()

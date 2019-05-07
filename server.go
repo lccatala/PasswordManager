@@ -42,14 +42,18 @@ func handler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain") // Standard header
 
 	user := User{}
-	user.getData(req)
+	user.GetData(req)
 
+	var ok bool
+	var message string
 	switch req.Form.Get("command") {
 	case SIGNUP:
-		user.signup()
+		ok, message = user.Signup()
 	case LOGIN:
-		user.login()
+		ok, message = user.Login()
 	}
+
+	respond(w, ok, message)
 }
 
 // Write response in JSON format

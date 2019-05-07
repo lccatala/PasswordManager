@@ -1,69 +1,89 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"os"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/scrypt"
 )
 
 // User data type
 type User struct {
+	UUID      uuid.UUID
 	Email     string
 	Name      string
 	Hash      []byte            // Password hash
 	Salt      []byte            // Password salt
-	Data      map[string]string // Additional data
+	Data      map[string]string // Additional data (public and private keys)
 	Passwords map[string]string // Key: url, Value: password
 }
 
-func (user User) login() {
-	storedUser := ReadUser(user.Name)
+// Login authenticates the user that calls it on the server
+func (user *User) Login() (success bool, message string) {
+	storedUser := User{}
+	storedUser.Read(user.Name)
 
-	if storedUser.Name == user.Name {
-		LogInfo("Logged in with user " + user.Name)
+	if storedUser.Name == user.Name && bytes.Equal(storedUser.Hash, user.Hash) {
+		message = "Logged in with user " + user.Name
 	} else {
-		LogInfo("Could not log in user " + user.Name)
+		message = "Could not log in user " + user.Name
 	}
+
+	LogInfo(message)
+	return
 }
 
-func (user User) signup() {
+// Signup creates a new user with the data of the one that calls it
+func (user *User) Signup() (success bool, message string) {
 	if users[user.Name] {
-		LogInfo("User " + user.Name + " already exists and cannot be signed up")
+		message = "User " + user.Name + " already exists and cannot be signed up"
+		success = false
 	} else {
-		user.write()
-		LogInfo("Signed up user " + user.Name)
+		message = "Signed up user " + user.Name
+		success = true
+		user.Write()
 	}
+	LogInfo(message)
+	return
 }
 
-func (user User) encryptFields() {
-	bytekey := []byte(user.Data["privKey"])
+// EncryptFields encrypts the calling user's fields with it's private key
+func (user *User) EncryptFields() {
+	//bytekey := []byte(user.Data["privKey"]) // TODO use another key for encrypting
 
-	user.Email = string(Encrypt([]byte(user.Email), bytekey))
-	user.Name = string(Encrypt([]byte(user.Name), bytekey))
+	user.Email = string(Encrypt([]byte(user.Email), KEY))
+	user.Name = string(Encrypt([]byte(user.Name), KEY))
 
 	for k, v := range user.Passwords {
-		user.Passwords[k] = string(Encrypt([]byte(v), bytekey))
+		user.Passwords[k] = string(Encrypt([]byte(v), KEY))
 	}
 }
 
-func (user User) write() {
+// Read reads from a json file into it's calling user
+func (user *User) Read(username string) {
+	fileData, _ := ioutil.ReadFile("users/" + username + ".json")
+	json.Unmarshal([]byte(fileData), &user)
+}
+
+// Write saves the calling user's data to the server's user list (encrypted) and to it's individual json
+func (user *User) Write() {
 
 	// Save to user's individual JSON
-	user.encryptFields()
+	user.EncryptFields()
 	fileData, err := json.MarshalIndent(user, "", "  ")
 	CheckError(err)
-	err = ioutil.WriteFile("users/"+user.Name+".json", fileData, 0644)
+	err = ioutil.WriteFile("users/"+user.UUID.String()+".json", fileData, 0644)
 	CheckError(err)
 
 	// Add user to users list
 	f, err := os.OpenFile("users/users.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	CheckError(err)
 	defer f.Close()
-
 	data := Encrypt([]byte(user.Name), KEY)
 	_, err = f.Write(data)
 	CheckError(err)
@@ -71,7 +91,8 @@ func (user User) write() {
 	CheckError(err)
 }
 
-func (user User) generatePassword(url string) {
+// GeneratePassword creates and saves a random password for a given URL
+func (user *User) GeneratePassword(url string) {
 	pBytes := make([]byte, 9)
 	_, err := rand.Read(pBytes)
 	CheckError(err)
@@ -79,8 +100,12 @@ func (user User) generatePassword(url string) {
 	user.Passwords[url] = password
 }
 
-func (user User) getData(req *http.Request) {
+// GetData reads a user's fields from an http request into it's calling user
+func (user *User) GetData(req *http.Request) {
 	user.Name = req.Form.Get("name")
+	var err error
+	user.UUID, err = uuid.FromBytes([]byte(user.Name)[:16])
+	CheckError(err)
 	user.Email = req.Form.Get("email")
 
 	// 16 byte (128 bit) random salt
@@ -89,8 +114,8 @@ func (user User) getData(req *http.Request) {
 
 	// Get private and public keys
 	user.Data = make(map[string]string)
-	user.Data["public"] = req.Form.Get("pubKey")
-	user.Data["private"] = req.Form.Get("privKey")
+	user.Data["pubKey"] = req.Form.Get("pubKey")
+	user.Data["privKey"] = req.Form.Get("privKey")
 
 	// Get password hash
 	password := Decode64(req.Form.Get("password"))
