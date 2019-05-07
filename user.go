@@ -26,7 +26,7 @@ type User struct {
 // Login authenticates the user that calls it on the server
 func (user *User) Login() (success bool, message string) {
 	storedUser := User{}
-	storedUser.Read(user.Name)
+	storedUser.Read(user.UUID.String())
 
 	if storedUser.Name == user.Name && bytes.Equal(storedUser.Hash, user.Hash) {
 		message = "Logged in with user " + user.Name
@@ -66,7 +66,7 @@ func (user *User) EncryptFields() {
 
 // Read reads from a json file into it's calling user
 func (user *User) Read(username string) {
-	fileData, _ := ioutil.ReadFile("users/" + username + ".json")
+	fileData, _ := ioutil.ReadFile("users/" + uuid + ".json")
 	json.Unmarshal([]byte(fileData), &user)
 }
 
