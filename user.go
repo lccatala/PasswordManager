@@ -27,6 +27,9 @@ type User struct {
 func (user *User) Login() (success bool, message string) {
 	storedUser := User{}
 	storedUser.Read(user.UUID.String())
+	if storedUser.Name == user.Name {
+		LogTrace("Names are equal")
+	}
 
 	if storedUser.Name == user.Name && bytes.Equal(storedUser.Hash, user.Hash) {
 		message = "Logged in with user " + user.Name
@@ -58,11 +61,33 @@ func (user *User) EncryptFields() {
 	//bytekey := []byte(user.Data["privKey"]) // TODO use another key for encrypting
 
 	user.Email = string(Encrypt([]byte(user.Email), KEY))
+	user.Email = Encode64([]byte(user.Email))
 	user.Name = string(Encrypt([]byte(user.Name), KEY))
-	user.Hash = Encrypt([]byte(user.Hash), KEY)
+	user.Name = Encode64([]byte(user.Name))
+	user.Hash = Encrypt(user.Hash, KEY)
+	user.Hash = []byte(Encode64(user.Hash))
 
 	for k, v := range user.Passwords {
 		user.Passwords[k] = string(Encrypt([]byte(v), KEY))
+	}
+}
+
+// DecryptFields decrypts the calling user's fields with it's private key
+func (user *User) DecryptFields() {
+	//bytekey := []byte(user.Data["privKey"]) // TODO use another key for encrypting
+
+	user.Email = string(Decode64(user.Email))
+	user.Email = string(Decrypt([]byte(user.Email), KEY))
+
+	user.Name = string(Decode64(user.Name))
+	user.Name = string(Decrypt([]byte(user.Name), KEY))
+
+	user.Hash = Decode64(string(user.Hash))
+	user.Hash = Decrypt([]byte(user.Hash), KEY)
+
+	for k, v := range user.Passwords {
+		user.Passwords[k] = string(Decode64(user.Passwords[k]))
+		user.Passwords[k] = string(Decrypt([]byte(v), KEY))
 	}
 }
 
@@ -70,6 +95,7 @@ func (user *User) EncryptFields() {
 func (user *User) Read(uuid string) {
 	fileData, _ := ioutil.ReadFile("users/" + uuid + ".json")
 	json.Unmarshal([]byte(fileData), &user)
+	user.DecryptFields()
 }
 
 // Write saves the calling user's data to the server's user list (encrypted) and to it's individual json

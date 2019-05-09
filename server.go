@@ -29,7 +29,7 @@ func startServer() {
 	LogInfo("Starting server...")
 
 	KEY = parseKey([]byte(os.Args[2]))
-	users = ReadAllUsers(KEY)
+	users = ReadAllUsers()
 
 	http.HandleFunc("/", handler)
 	LogInfo("Done")
