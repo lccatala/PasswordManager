@@ -148,6 +148,7 @@ func (user *User) GetData(req *http.Request) {
 	user.Hash, _ = scrypt.Key(password, user.Salt, 16384, 8, 1, 32)
 }
 
+// HashPasswordFromFile gets the correct hash for a user by reading the salt from it's file
 func (user *User) HashPasswordFromFile(key string) {
 	storedUser := User{}
 	storedUser.Read(user.UUID.String())
