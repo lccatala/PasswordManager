@@ -9,8 +9,10 @@ import (
 
 // Response from server
 type Response struct {
-	Ok      bool
-	Message string
+	Ok        bool
+	Message   string
+	Username  string
+	Passwords map[string]string
 }
 
 // Login and signup modes
@@ -44,25 +46,25 @@ func handler(w http.ResponseWriter, req *http.Request) {
 	user := User{}
 	user.GetData(req)
 
-	var ok bool
-	var message string
+	resp := Response{}
 	switch req.Form.Get("command") {
 	case SIGNUP:
-		ok, message = user.Signup()
+		resp = user.Signup()
+		LogTrace("User name: " + user.Name)
+		LogTrace("Resp name: " + resp.Username)
 	case LOGIN:
 		user.HashPasswordFromFile(req.Form.Get("password"))
-		ok, message = user.Login()
+		resp = user.Login()
 	}
 
-	respond(w, ok, message)
+	respond(w, resp)
 }
 
 // Write response in JSON format
-func respond(w io.Writer, ok bool, message string) {
-	response := Response{Ok: ok, Message: message}
-	JSONResponse, err := json.Marshal(&response)
+func respond(w io.Writer, resp Response) {
+	JSONResp, err := json.Marshal(&resp)
 	CheckError(err)
-	w.Write(JSONResponse)
+	w.Write(JSONResp)
 }
 
 // Modify server key so it has an appropiate length

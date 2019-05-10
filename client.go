@@ -6,6 +6,7 @@ import (
 	"crypto/sha512"
 	"crypto/tls"
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -86,7 +87,11 @@ func connect(command string, name string, email string, password string) {
 	data.Set("privKey", Encode64(Encrypt(Compress(JSONkp), dataKey)))
 
 	// Send data via POST
-	_, err = client.PostForm("https://localhost:10443", data)
+	r, err := client.PostForm("https://localhost:10443", data)
+	io.Copy(os.Stdout, r.Body)
+	// response := Response{}
+	// json.NewDecoder(r.Body).Decode(response)
+
 	CheckError(err)
 }
 

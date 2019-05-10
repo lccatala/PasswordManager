@@ -24,33 +24,42 @@ type User struct {
 }
 
 // Login authenticates the user that calls it on the server
-func (user *User) Login() (success bool, message string) {
+func (user *User) Login() (resp Response) {
 	storedUser := User{}
 	storedUser.Read(user.UUID.String())
 
+	resp.Passwords = make(map[string]string)
+	resp.Username = user.Name
 	if storedUser.Name == user.Name && bytes.Equal(storedUser.Hash, user.Hash) {
-		message = "Logged in with user " + user.Name
+		resp.Message = "Logged in with user " + user.Name
+		resp.Ok = true
+
+		for k, v := range storedUser.Passwords {
+			resp.Passwords[k] = v
+		}
 	} else {
-		message = "Could not log in user " + user.Name
+		resp.Message = "Could not log in user " + user.Name
+		resp.Ok = false
 	}
 
-	LogInfo(message)
+	LogInfo(resp.Message)
 	return
 }
 
 // Signup creates a new user with the data of the one that calls it
-func (user *User) Signup() (success bool, message string) {
+func (user *User) Signup() (resp Response) {
+	resp.Username = user.Name
 	if users[user.UUID.String()] {
-		success = false
-		message = "User " + user.Name + " already exists and cannot be signed up"
+		resp.Ok = false
+		resp.Message = "User " + user.Name + " already exists and cannot be signed up"
 	} else {
-		success = true
+		resp.Ok = true
 		user.Write()
 		users[user.UUID.String()] = true
-		message = "Signed up user " + user.Name
+		resp.Message = "Signed up user " + user.Name
 	}
 
-	LogInfo(message)
+	LogInfo(resp.Message)
 	return
 }
 
@@ -60,8 +69,10 @@ func (user *User) EncryptFields() {
 
 	user.Email = string(Encrypt([]byte(user.Email), KEY))
 	user.Email = Encode64([]byte(user.Email))
+
 	user.Name = string(Encrypt([]byte(user.Name), KEY))
 	user.Name = Encode64([]byte(user.Name))
+
 	user.Hash = Encrypt(user.Hash, KEY)
 	user.Hash = []byte(Encode64(user.Hash))
 
@@ -84,8 +95,7 @@ func (user *User) DecryptFields() {
 	user.Hash = Decrypt([]byte(user.Hash), KEY)
 
 	for k, v := range user.Passwords {
-		user.Passwords[k] = string(Decode64(user.Passwords[k]))
-		user.Passwords[k] = string(Decrypt([]byte(v), KEY))
+		user.Passwords[k] = string(Decrypt(Decode64(v), KEY))
 	}
 }
 
