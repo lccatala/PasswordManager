@@ -50,6 +50,7 @@ func handler(w http.ResponseWriter, req *http.Request) {
 	case SIGNUP:
 		ok, message = user.Signup()
 	case LOGIN:
+		user.HashPasswordFromFile(req.Form.Get("password"))
 		ok, message = user.Login()
 	}
 

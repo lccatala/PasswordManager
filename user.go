@@ -27,9 +27,6 @@ type User struct {
 func (user *User) Login() (success bool, message string) {
 	storedUser := User{}
 	storedUser.Read(user.UUID.String())
-	if storedUser.Name == user.Name {
-		LogTrace("Names are equal")
-	}
 
 	if storedUser.Name == user.Name && bytes.Equal(storedUser.Hash, user.Hash) {
 		message = "Logged in with user " + user.Name
@@ -52,6 +49,7 @@ func (user *User) Signup() (success bool, message string) {
 		users[user.UUID.String()] = true
 		message = "Signed up user " + user.Name
 	}
+
 	LogInfo(message)
 	return
 }
@@ -148,4 +146,10 @@ func (user *User) GetData(req *http.Request) {
 	// Get password hash
 	password := Decode64(req.Form.Get("password"))
 	user.Hash, _ = scrypt.Key(password, user.Salt, 16384, 8, 1, 32)
+}
+
+func (user *User) HashPasswordFromFile(key string) {
+	storedUser := User{}
+	storedUser.Read(user.UUID.String())
+	user.Hash, _ = scrypt.Key(Decode64(key), storedUser.Salt, 16384, 8, 1, 32)
 }
