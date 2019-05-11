@@ -6,7 +6,6 @@ import (
 	"crypto/sha512"
 	"crypto/tls"
 	"encoding/json"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -18,6 +17,13 @@ import (
 	"github.com/zserge/lorca"
 )
 
+// FormData stores the data collected from login/signup forms in the client
+type FormData struct {
+	Email    string
+	Password string
+	Name     string
+}
+
 func startClientUI() {
 	args := []string{}
 	if runtime.GOOS == "linux" {
@@ -25,16 +31,11 @@ func startClientUI() {
 	}
 	ui, err := lorca.New("", "", 300, 500, args...)
 	defer ui.Close()
-	ui.Bind("login", func() {
-		sendFormData("login", ui)
-	})
-	ui.Bind("signup", func() {
-		sendFormData("signup", ui)
-	})
-
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	setUpFunctions(ui)
 
 	// Load HTML after Go functions are bound to JS
 	html, _ := ioutil.ReadFile("public/login.html")
@@ -50,7 +51,7 @@ func startClientUI() {
 }
 
 // Establish connection with server
-func connect(command string, name string, email string, password string) {
+func connect(command string, fd FormData) *Response {
 
 	// Client that accepts self-signed certificates (for testing only)
 	tr := &http.Transport{
@@ -59,7 +60,7 @@ func connect(command string, name string, email string, password string) {
 	client := &http.Client{Transport: tr}
 
 	// SHA512 hash of password
-	clientKey := sha512.Sum512([]byte(password))
+	clientKey := sha512.Sum512([]byte(fd.Password))
 	loginKey := clientKey[:32]  // first half for login (256 bits)
 	dataKey := clientKey[32:64] // second half for data (256 bits)
 
@@ -80,24 +81,41 @@ func connect(command string, name string, email string, password string) {
 	// Prepare data to be sent to server
 	data := url.Values{}
 	data.Set("command", command)
-	data.Set("name", name)
-	data.Set("email", email)
+	data.Set("name", fd.Name)
+	data.Set("email", fd.Email)
 	data.Set("password", Encode64(loginKey))
 	data.Set("pubKey", Encode64(Compress(JSONPub)))
 	data.Set("privKey", Encode64(Encrypt(Compress(JSONkp), dataKey)))
 
 	// Send data via POST
 	r, err := client.PostForm("https://localhost:10443", data)
-	io.Copy(os.Stdout, r.Body)
-	// response := Response{}
-	// json.NewDecoder(r.Body).Decode(response)
-
 	CheckError(err)
+	defer r.Body.Close()
+
+	// Get response
+	response := new(Response)
+	json.NewDecoder(r.Body).Decode(response)
+	return response
 }
 
-func sendFormData(command string, ui lorca.UI) {
-	email := ui.Eval("getEmail()").String()
-	password := ui.Eval("getPassword()").String()
-	name := ui.Eval("getUsername()").String()
-	connect(command, name, email, password)
+func readFormData(ui lorca.UI) (data FormData) {
+	data.Email = ui.Eval("getEmail()").String()
+	data.Password = ui.Eval("getPassword()").String()
+	data.Name = ui.Eval("getUsername()").String()
+	return
+}
+
+func setUpFunctions(ui lorca.UI) {
+	ui.Bind("login", func() {
+		data := readFormData(ui)
+		resp := connect("login", data)
+		LogTrace("Welcome, " + resp.UserData.Name)
+	})
+	ui.Bind("signup", func() {
+		data := readFormData(ui)
+		resp := connect("signup", data)
+		LogTrace("You signed up as " + resp.UserData.Name)
+		html, _ := ioutil.ReadFile("public/profile.html")
+		ui.Load("data:text/html," + url.PathEscape(string(html)))
+	})
 }

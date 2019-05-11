@@ -28,19 +28,22 @@ func (user *User) Login() (resp Response) {
 	storedUser := User{}
 	storedUser.Read(user.UUID.String())
 
-	resp.Passwords = make(map[string]string)
-	resp.Username = user.Name
+	resp.UserData.Passwords = make(map[string]string)
+	resp.UserData.Name = user.Name
 	if storedUser.Name == user.Name && bytes.Equal(storedUser.Hash, user.Hash) {
-		resp.Message = "Logged in with user " + user.Name
+		resp.Message = "Logged in with user "
 		resp.Ok = true
 
 		for k, v := range storedUser.Passwords {
-			resp.Passwords[k] = v
+			resp.UserData.Passwords[k] = v
 		}
 	} else {
-		resp.Message = "Could not log in user " + user.Name
+		resp.Message = "Could not log in user "
 		resp.Ok = false
 	}
+
+	user.DecryptFields()
+	resp.Message += user.Name
 
 	LogInfo(resp.Message)
 	return
@@ -48,16 +51,19 @@ func (user *User) Login() (resp Response) {
 
 // Signup creates a new user with the data of the one that calls it
 func (user *User) Signup() (resp Response) {
-	resp.Username = user.Name
+	resp.UserData.Name = user.Name
 	if users[user.UUID.String()] {
 		resp.Ok = false
-		resp.Message = "User " + user.Name + " already exists and cannot be signed up"
+		resp.Message = "Could not sign up repeated user "
 	} else {
 		resp.Ok = true
 		user.Write()
 		users[user.UUID.String()] = true
-		resp.Message = "Signed up user " + user.Name
+		resp.Message = "Signed up user "
 	}
+
+	user.DecryptFields()
+	resp.UserData = *user
 
 	LogInfo(resp.Message)
 	return

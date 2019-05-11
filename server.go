@@ -9,10 +9,9 @@ import (
 
 // Response from server
 type Response struct {
-	Ok        bool
-	Message   string
-	Username  string
-	Passwords map[string]string
+	Ok       bool
+	Message  string
+	UserData User
 }
 
 // Login and signup modes
@@ -50,8 +49,6 @@ func handler(w http.ResponseWriter, req *http.Request) {
 	switch req.Form.Get("command") {
 	case SIGNUP:
 		resp = user.Signup()
-		LogTrace("User name: " + user.Name)
-		LogTrace("Resp name: " + resp.Username)
 	case LOGIN:
 		user.HashPasswordFromFile(req.Form.Get("password"))
 		resp = user.Login()
