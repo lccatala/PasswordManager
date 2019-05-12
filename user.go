@@ -31,21 +31,17 @@ func (user *User) Login() (resp Response) {
 	resp.UserData.Passwords = make(map[string]string)
 	resp.UserData.Name = user.Name
 	if storedUser.Name == user.Name && bytes.Equal(storedUser.Hash, user.Hash) {
-		resp.Message = "Logged in with user "
+		LogInfo("User logged in")
 		resp.Ok = true
 
 		for k, v := range storedUser.Passwords {
 			resp.UserData.Passwords[k] = v
 		}
 	} else {
-		resp.Message = "Could not log in user "
+		LogInfo("User failed logging in")
 		resp.Ok = false
 	}
 
-	user.DecryptFields()
-	resp.Message += user.Name
-
-	LogInfo(resp.Message)
 	return
 }
 
@@ -73,14 +69,9 @@ func (user *User) Signup() (resp Response) {
 func (user *User) EncryptFields() {
 	//bytekey := []byte(user.Data["privKey"]) // TODO use another key for encrypting
 
-	user.Email = string(Encrypt([]byte(user.Email), KEY))
-	user.Email = Encode64([]byte(user.Email))
-
-	user.Name = string(Encrypt([]byte(user.Name), KEY))
-	user.Name = Encode64([]byte(user.Name))
-
-	user.Hash = Encrypt(user.Hash, KEY)
-	user.Hash = []byte(Encode64(user.Hash))
+	user.Email = Encode64(Encrypt([]byte(user.Email), KEY))
+	user.Name = Encode64(Encrypt([]byte(user.Name), KEY))
+	//user.Hash = []byte(Encode64(Encrypt(user.Hash, KEY)))
 
 	for k, v := range user.Passwords {
 		user.Passwords[k] = string(Encrypt([]byte(v), KEY))
@@ -91,14 +82,9 @@ func (user *User) EncryptFields() {
 func (user *User) DecryptFields() {
 	//bytekey := []byte(user.Data["privKey"]) // TODO use another key for encrypting
 
-	user.Email = string(Decode64(user.Email))
-	user.Email = string(Decrypt([]byte(user.Email), KEY))
-
-	user.Name = string(Decode64(user.Name))
-	user.Name = string(Decrypt([]byte(user.Name), KEY))
-
-	user.Hash = Decode64(string(user.Hash))
-	user.Hash = Decrypt([]byte(user.Hash), KEY)
+	user.Email = string(Decrypt(Decode64(user.Email), KEY))
+	user.Name = string(Decrypt(Decode64(user.Name), KEY))
+	//user.Hash = Decrypt(Decode64(string(user.Hash)), KEY)
 
 	for k, v := range user.Passwords {
 		user.Passwords[k] = string(Decrypt(Decode64(v), KEY))

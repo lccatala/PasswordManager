@@ -109,13 +109,27 @@ func setUpFunctions(ui lorca.UI) {
 	ui.Bind("login", func() {
 		data := readFormData(ui)
 		resp := connect("login", data)
-		LogTrace("Welcome, " + resp.UserData.Name)
+		LogTrace("Logged in as " + resp.UserData.Name)
+		//loadProfile(ui, resp.UserData)
 	})
 	ui.Bind("signup", func() {
 		data := readFormData(ui)
 		resp := connect("signup", data)
-		LogTrace("You signed up as " + resp.UserData.Name)
-		html, _ := ioutil.ReadFile("public/profile.html")
-		ui.Load("data:text/html," + url.PathEscape(string(html)))
+		loadProfile(ui, resp.UserData)
+		LogTrace("Signed up as " + resp.UserData.Name)
 	})
+}
+
+func loadProfile(ui lorca.UI, user User) {
+	html, _ := ioutil.ReadFile("public/profile.html")
+	ui.Load("data:text/html," + url.PathEscape(string(html)))
+	ui.Eval("document.write('<html>')")
+	ui.Eval("document.write('<div class=\"container\">')")
+	ui.Eval("document.write('<html><h1>Welcome, " + user.Name + "</h1></html>')")
+	ui.Eval("document.write('<p>Password 1: </p>')")
+	ui.Eval("document.write('<p>Password 2: </p>')")
+	ui.Eval("document.write('<p>Password 2: </p>')")
+	ui.Eval("document.write('<button id=\"login-button\" class=\"btn btn-lg btn-primary btn-block\" type=\"submit\">Log in</button>')")
+	ui.Eval("document.write('</div>')")
+	ui.Eval("document.write('</html>')")
 }
