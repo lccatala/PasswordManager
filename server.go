@@ -18,6 +18,7 @@ type Response struct {
 const (
 	LOGIN  = "login"
 	SIGNUP = "signup"
+	ADD    = "add"
 )
 
 // KEY for encrypting user list
@@ -52,6 +53,9 @@ func handler(w http.ResponseWriter, req *http.Request) {
 	case LOGIN:
 		user.HashPasswordFromFile(req.Form.Get("password"))
 		resp = user.Login()
+	case ADD:
+		LogTrace("UUID: " + req.Form.Get("uuid"))
+		resp = user.GeneratePassword(req.Form.Get("url"), req.Form.Get("uuid"))
 	}
 
 	respond(w, resp)

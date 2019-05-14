@@ -14,15 +14,20 @@ import (
 	"os/signal"
 	"runtime"
 
+	"github.com/google/uuid"
 	"github.com/zserge/lorca"
 )
 
-// FormData stores the data collected from login/signup forms in the client
+// FormData stores the data collected from login/signup/add-password forms in the client
 type FormData struct {
 	Email    string
 	Password string
 	Name     string
+	URL      string
+	userUUID uuid.UUID
 }
+
+var currentUUID uuid.UUID
 
 func startClientUI() {
 	args := []string{}
@@ -35,7 +40,7 @@ func startClientUI() {
 		log.Fatal(err)
 	}
 
-	setUpFunctions(ui)
+	setUpLoginFunctions(ui)
 
 	// Load HTML after Go functions are bound to JS
 	html, _ := ioutil.ReadFile("public/login.html")
@@ -86,6 +91,8 @@ func connect(command string, fd FormData) *Response {
 	data.Set("password", Encode64(loginKey))
 	data.Set("pubKey", Encode64(Compress(JSONPub)))
 	data.Set("privKey", Encode64(Encrypt(Compress(JSONkp), dataKey)))
+	data.Set("url", fd.URL)
+	data.Set("uuid", currentUUID.String())
 
 	// Send data via POST
 	r, err := client.PostForm("https://localhost:10443", data)
@@ -105,12 +112,17 @@ func readFormData(ui lorca.UI) (data FormData) {
 	return
 }
 
-func setUpFunctions(ui lorca.UI) {
+func readPasswordURL(ui lorca.UI) (data FormData) {
+	data.URL = ui.Eval("getUrl()").String()
+	return
+}
+
+func setUpLoginFunctions(ui lorca.UI) {
 	ui.Bind("login", func() {
 		data := readFormData(ui)
 		resp := connect("login", data)
 		LogTrace("Logged in as " + resp.UserData.Name)
-		//loadProfile(ui, resp.UserData)
+		loadProfile(ui, resp.UserData)
 	})
 	ui.Bind("signup", func() {
 		data := readFormData(ui)
@@ -120,16 +132,24 @@ func setUpFunctions(ui lorca.UI) {
 	})
 }
 
+func setupProfileFunctions(ui lorca.UI) {
+	ui.Bind("addPassword", func() {
+		data := readPasswordURL(ui)
+		resp := connect("add", data)
+		loadProfile(ui, resp.UserData)
+	})
+}
+
 func loadProfile(ui lorca.UI, user User) {
+	setupProfileFunctions(ui)
 	html, _ := ioutil.ReadFile("public/profile.html")
 	ui.Load("data:text/html," + url.PathEscape(string(html)))
-	ui.Eval("document.write('<html>')")
-	ui.Eval("document.write('<div class=\"container\">')")
-	ui.Eval("document.write('<html><h1>Welcome, " + user.Name + "</h1></html>')")
-	ui.Eval("document.write('<p>Password 1: </p>')")
-	ui.Eval("document.write('<p>Password 2: </p>')")
-	ui.Eval("document.write('<p>Password 2: </p>')")
-	ui.Eval("document.write('<button id=\"login-button\" class=\"btn btn-lg btn-primary btn-block\" type=\"submit\">Log in</button>')")
-	ui.Eval("document.write('</div>')")
-	ui.Eval("document.write('</html>')")
+	replaceInDoc(ui, "username", user.Name)
+	for k, v := range user.Passwords {
+		ui.Eval("document.write('<p>Password for " + k + ": " + v + "</p>')")
+	}
+}
+
+func replaceInDoc(ui lorca.UI, original string, new string) {
+	ui.Eval("document.body.innerHTML = document.body.innerHTML.replace('{" + original + "}', '" + new + "');")
 }

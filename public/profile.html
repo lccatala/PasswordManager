@@ -11,5 +11,23 @@
     <link href="main.css" rel="stylesheet">
   </head>
   <body>
+    <div class="container">
+      <h1>Welcome, {username}</h1>
+      <input type="text" id="new-url" class="form-control" placeholder="URL" required>
+      <button id="add-password-button" class="btn btn-lg btn-primary btn-block" type="submit">Add password</button>
+    </div>
+    <script>
+      function getUrl() {
+        var newUrl = document.getElementById('new-url').value;
+        if (newUrl != "")
+          return newUrl
+        return "placeholder"
+      }
+
+      const addPasswordButton  = document.getElementById('add-password-button');
+      addPasswordButton.addEventListener('click', async () => {
+        await addPassword()
+      })
+    </script>
   </body>
 </html>

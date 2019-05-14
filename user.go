@@ -53,7 +53,7 @@ func (user *User) Signup() (resp Response) {
 		resp.Message = "Could not sign up repeated user "
 	} else {
 		resp.Ok = true
-		user.Write()
+		user.Write(user.UUID.String())
 		users[user.UUID.String()] = true
 		resp.Message = "Signed up user "
 	}
@@ -74,7 +74,7 @@ func (user *User) EncryptFields() {
 	//user.Hash = []byte(Encode64(Encrypt(user.Hash, KEY)))
 
 	for k, v := range user.Passwords {
-		user.Passwords[k] = string(Encrypt([]byte(v), KEY))
+		user.Passwords[k] = Encode64(Encrypt([]byte(v), KEY))
 	}
 }
 
@@ -99,13 +99,13 @@ func (user *User) Read(uuid string) {
 }
 
 // Write saves the calling user's data to the server's user list (encrypted) and to it's individual json
-func (user *User) Write() {
+func (user *User) Write(filename string) {
 
 	// Save to user's individual JSON
 	user.EncryptFields()
 	fileData, err := json.MarshalIndent(user, "", "  ")
 	CheckError(err)
-	err = ioutil.WriteFile("users/"+user.UUID.String()+".json", fileData, 0644)
+	err = ioutil.WriteFile("users/"+filename+".json", fileData, 0644)
 	CheckError(err)
 
 	// Add user to users list
@@ -120,12 +120,23 @@ func (user *User) Write() {
 }
 
 // GeneratePassword creates and saves a random password for a given URL
-func (user *User) GeneratePassword(url string) {
+func (user *User) GeneratePassword(url string, filename string) (resp Response) {
+	if user.Passwords == nil {
+		user.Passwords = make(map[string]string)
+	}
 	pBytes := make([]byte, 9)
 	_, err := rand.Read(pBytes)
 	CheckError(err)
-	password := Encode64(pBytes)
+	password := string(pBytes)
 	user.Passwords[url] = password
+	resp.Ok = true
+	resp.UserData = *user
+	LogTrace("Username: " + user.Name)
+	LogTrace("Password for " + url + ": " + user.Passwords[url])
+
+	user.Write(filename)
+
+	return
 }
 
 // GetData reads a user's fields from an http request into it's calling user
