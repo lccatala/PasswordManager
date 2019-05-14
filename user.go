@@ -27,9 +27,13 @@ type User struct {
 func (user *User) Login() (resp Response) {
 	storedUser := User{}
 	storedUser.Read(user.UUID.String())
+	if user.Passwords == nil {
+		user.Passwords = make(map[string]string)
+	}
 
 	resp.UserData.Passwords = make(map[string]string)
 	resp.UserData.Name = user.Name
+	resp.UserData.UUID = user.UUID
 	if storedUser.Name == user.Name && bytes.Equal(storedUser.Hash, user.Hash) {
 		LogInfo("User logged in")
 		resp.Ok = true
@@ -48,20 +52,29 @@ func (user *User) Login() (resp Response) {
 // Signup creates a new user with the data of the one that calls it
 func (user *User) Signup() (resp Response) {
 	resp.UserData.Name = user.Name
+	resp.UserData.UUID = user.UUID
 	if users[user.UUID.String()] {
 		resp.Ok = false
-		resp.Message = "Could not sign up repeated user "
+		LogInfo("Failed attempt to sign up user")
 	} else {
 		resp.Ok = true
+		user.Passwords = make(map[string]string)
 		user.Write(user.UUID.String())
 		users[user.UUID.String()] = true
-		resp.Message = "Signed up user "
+		LogInfo("Signed up user")
 	}
 
-	user.DecryptFields()
-	resp.UserData = *user
+	return
+}
 
-	LogInfo(resp.Message)
+// AddPassword adds a password for a given url to the calling user
+func (user *User) AddPassword(password string, url string) (resp Response) {
+	if user.Passwords == nil {
+		user.Passwords = make(map[string]string)
+	}
+
+	user.Passwords[url] = password
+	resp.Ok = true
 	return
 }
 
@@ -71,7 +84,6 @@ func (user *User) EncryptFields() {
 
 	user.Email = Encode64(Encrypt([]byte(user.Email), KEY))
 	user.Name = Encode64(Encrypt([]byte(user.Name), KEY))
-	//user.Hash = []byte(Encode64(Encrypt(user.Hash, KEY)))
 
 	for k, v := range user.Passwords {
 		user.Passwords[k] = Encode64(Encrypt([]byte(v), KEY))
@@ -84,7 +96,6 @@ func (user *User) DecryptFields() {
 
 	user.Email = string(Decrypt(Decode64(user.Email), KEY))
 	user.Name = string(Decrypt(Decode64(user.Name), KEY))
-	//user.Hash = Decrypt(Decode64(string(user.Hash)), KEY)
 
 	for k, v := range user.Passwords {
 		user.Passwords[k] = string(Decrypt(Decode64(v), KEY))
@@ -93,6 +104,9 @@ func (user *User) DecryptFields() {
 
 // Read reads from a json file into it's calling user
 func (user *User) Read(uuid string) {
+	if user.Passwords == nil {
+		user.Passwords = make(map[string]string)
+	}
 	fileData, _ := ioutil.ReadFile("users/" + uuid + ".json")
 	json.Unmarshal([]byte(fileData), &user)
 	user.DecryptFields()
@@ -117,26 +131,6 @@ func (user *User) Write(filename string) {
 	CheckError(err)
 	_, err = f.Write([]byte("\n"))
 	CheckError(err)
-}
-
-// GeneratePassword creates and saves a random password for a given URL
-func (user *User) GeneratePassword(url string, filename string) (resp Response) {
-	if user.Passwords == nil {
-		user.Passwords = make(map[string]string)
-	}
-	pBytes := make([]byte, 9)
-	_, err := rand.Read(pBytes)
-	CheckError(err)
-	password := string(pBytes)
-	user.Passwords[url] = password
-	resp.Ok = true
-	resp.UserData = *user
-	LogTrace("Username: " + user.Name)
-	LogTrace("Password for " + url + ": " + user.Passwords[url])
-
-	user.Write(filename)
-
-	return
 }
 
 // GetData reads a user's fields from an http request into it's calling user

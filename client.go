@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/zserge/lorca"
@@ -27,7 +28,7 @@ type FormData struct {
 	userUUID uuid.UUID
 }
 
-var currentUUID uuid.UUID
+var currentUser User
 
 func startClientUI() {
 	args := []string{}
@@ -88,12 +89,17 @@ func connect(command string, fd FormData) *Response {
 	data.Set("command", command)
 	data.Set("name", fd.Name)
 	data.Set("email", fd.Email)
-	data.Set("password", Encode64(loginKey))
 	data.Set("pubKey", Encode64(Compress(JSONPub)))
 	data.Set("privKey", Encode64(Encrypt(Compress(JSONkp), dataKey)))
 	data.Set("url", fd.URL)
-	data.Set("uuid", currentUUID.String())
+	data.Set("uuid", currentUser.UUID.String())
+	LogTrace("Sent: " + currentUser.UUID.String())
 
+	if command != "add" {
+		data.Set("password", Encode64(loginKey))
+	} else {
+		data.Set("password", fd.Password)
+	}
 	// Send data via POST
 	r, err := client.PostForm("https://localhost:10443", data)
 	CheckError(err)
@@ -102,6 +108,7 @@ func connect(command string, fd FormData) *Response {
 	// Get response
 	response := new(Response)
 	json.NewDecoder(r.Body).Decode(response)
+	currentUser.UUID = response.UserData.UUID
 	return response
 }
 
@@ -112,8 +119,9 @@ func readFormData(ui lorca.UI) (data FormData) {
 	return
 }
 
-func readPasswordURL(ui lorca.UI) (data FormData) {
+func readProfileForm(ui lorca.UI) (data FormData) {
 	data.URL = ui.Eval("getUrl()").String()
+	data.Password = generatePassword(data.URL, true, 12)
 	return
 }
 
@@ -121,33 +129,56 @@ func setUpLoginFunctions(ui lorca.UI) {
 	ui.Bind("login", func() {
 		data := readFormData(ui)
 		resp := connect("login", data)
-		LogTrace("Logged in as " + resp.UserData.Name)
-		loadProfile(ui, resp.UserData)
+		currentUser.UUID = resp.UserData.UUID
+		if resp.Ok {
+			loadProfile(ui, resp.UserData)
+		}
 	})
 	ui.Bind("signup", func() {
 		data := readFormData(ui)
 		resp := connect("signup", data)
-		loadProfile(ui, resp.UserData)
-		LogTrace("Signed up as " + resp.UserData.Name)
+		currentUser.UUID = resp.UserData.UUID
+		if resp.Ok {
+			loadProfile(ui, resp.UserData)
+		}
 	})
 }
 
-func setupProfileFunctions(ui lorca.UI) {
+func setupProfileFunctions(ui lorca.UI, user User) {
 	ui.Bind("addPassword", func() {
-		data := readPasswordURL(ui)
-		resp := connect("add", data)
-		loadProfile(ui, resp.UserData)
+		data := readProfileForm(ui)
+		data.userUUID = currentUser.UUID
+		connect("add", data)
+		loadProfile(ui, user)
 	})
 }
 
 func loadProfile(ui lorca.UI, user User) {
-	setupProfileFunctions(ui)
+	setupProfileFunctions(ui, user)
 	html, _ := ioutil.ReadFile("public/profile.html")
 	ui.Load("data:text/html," + url.PathEscape(string(html)))
 	replaceInDoc(ui, "username", user.Name)
-	for k, v := range user.Passwords {
-		ui.Eval("document.write('<p>Password for " + k + ": " + v + "</p>')")
+	/*
+		i := 1
+		for k, v := range user.Passwords {
+			replaceInDoc(ui, "url"+string(i), k)
+			replaceInDoc(ui, "password"+string(i), v)
+			i++
+		}
+	*/
+}
+
+func generatePassword(url string, useUppercases bool, length int) string {
+	pBytes := make([]byte, length)
+	_, err := rand.Read(pBytes)
+	CheckError(err)
+	password := string(pBytes)
+
+	if !useUppercases {
+		password = strings.ToLower(password)
 	}
+
+	return password
 }
 
 func replaceInDoc(ui lorca.UI, original string, new string) {

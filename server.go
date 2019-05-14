@@ -5,12 +5,13 @@ import (
 	"io"
 	"net/http"
 	"os"
+
+	"github.com/google/uuid"
 )
 
 // Response from server
 type Response struct {
 	Ok       bool
-	Message  string
 	UserData User
 }
 
@@ -43,19 +44,30 @@ func handler(w http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
 	w.Header().Set("Content-Type", "text/plain") // Standard header
 
+	command := req.Form.Get("command")
 	user := User{}
-	user.GetData(req)
+	if command != ADD {
+		user.GetData(req)
+	}
 
 	resp := Response{}
-	switch req.Form.Get("command") {
+	switch command {
 	case SIGNUP:
 		resp = user.Signup()
 	case LOGIN:
 		user.HashPasswordFromFile(req.Form.Get("password"))
 		resp = user.Login()
 	case ADD:
-		LogTrace("UUID: " + req.Form.Get("uuid"))
-		resp = user.GeneratePassword(req.Form.Get("url"), req.Form.Get("uuid"))
+		newPassword := req.Form.Get("password")
+		newURL := req.Form.Get("url")
+
+		user := User{}
+		path, _ := uuid.Parse(req.Form.Get("uuid"))
+
+		user.Read(path.String())
+		resp = user.AddPassword(newPassword, newURL)
+		LogTrace(user.Passwords[newURL])
+		user.Write(path.String())
 	}
 
 	respond(w, resp)

@@ -19,12 +19,10 @@
     <script>
       function getUrl() {
         var newUrl = document.getElementById('new-url').value;
-        if (newUrl != "")
-          return newUrl
-        return "placeholder"
+        return newUrl;
       }
 
-      const addPasswordButton  = document.getElementById('add-password-button');
+      const addPasswordButton = document.getElementById('add-password-button');
       addPasswordButton.addEventListener('click', async () => {
         await addPassword()
       })
