@@ -13,7 +13,8 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"strings"
+
+	"github.com/sethvargo/go-password/password"
 
 	"github.com/google/uuid"
 	"github.com/zserge/lorca"
@@ -93,7 +94,6 @@ func connect(command string, fd FormData) *Response {
 	data.Set("privKey", Encode64(Encrypt(Compress(JSONkp), dataKey)))
 	data.Set("url", fd.URL)
 	data.Set("uuid", currentUser.UUID.String())
-	LogTrace("Sent: " + currentUser.UUID.String())
 
 	if command != "add" {
 		data.Set("password", Encode64(loginKey))
@@ -121,7 +121,20 @@ func readFormData(ui lorca.UI) (data FormData) {
 
 func readProfileForm(ui lorca.UI) (data FormData) {
 	data.URL = ui.Eval("getUrl()").String()
-	data.Password = generatePassword(data.URL, true, 12)
+	useUppercase := false //ui.Eval("getUseUpperCase()").Bool()
+	useRepeating := true  //ui.Eval("getUseRepeating()").Bool()
+	pl := 12              //ui.Eval("getPassLength()").Int()
+	pass, err := password.Generate(pl, 4, 4, !useUppercase, useRepeating)
+	CheckError(err)
+
+	if useUppercase {
+		LogTrace("Using uppercase")
+	}
+	if useRepeating {
+		LogTrace("Using repeating")
+	}
+
+	data.Password = pass
 	return
 }
 
@@ -146,6 +159,7 @@ func setUpLoginFunctions(ui lorca.UI) {
 
 func setupProfileFunctions(ui lorca.UI, user User) {
 	ui.Bind("addPassword", func() {
+		LogTrace("Pressed")
 		data := readProfileForm(ui)
 		data.userUUID = currentUser.UUID
 		connect("add", data)
@@ -166,19 +180,6 @@ func loadProfile(ui lorca.UI, user User) {
 			i++
 		}
 	*/
-}
-
-func generatePassword(url string, useUppercases bool, length int) string {
-	pBytes := make([]byte, length)
-	_, err := rand.Read(pBytes)
-	CheckError(err)
-	password := string(pBytes)
-
-	if !useUppercases {
-		password = strings.ToLower(password)
-	}
-
-	return password
 }
 
 func replaceInDoc(ui lorca.UI, original string, new string) {

@@ -161,28 +161,3 @@ func (user *User) HashPasswordFromFile(key string) {
 	storedUser.Read(user.UUID.String())
 	user.Hash, _ = scrypt.Key(Decode64(key), storedUser.Salt, 16384, 8, 1, 32)
 }
-
-//Parameter check for password
-func (user *User) ParameterCheck(password string) {
-	f := func(r rune) bool {
-		return r < 'A' || r > 'z'
-	}
-	//length
-	if (len([]rune(user.Passwords)) < 12) {
-		LogInfo("Password must be equaled to or more than 12 characters")
-	//	return to main screen
-	}
-	//special characters
-	else if (strings.IndexFunc(user.Passwords, f) == -1) {
-		LogInfo("Password must have a special character")
-		//return to main screen
-	}
-	//uppercase letters
-	else if (strings.ContainsAny(rune.uppercase) != true) { //don't know if that actually works though
-		LogInfo("Password must contain at least one uppercase letter")
-		//return to main screen
-	}
-	
-	user.Passwords = password
-	return password
-}

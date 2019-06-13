@@ -66,7 +66,6 @@ func handler(w http.ResponseWriter, req *http.Request) {
 
 		user.Read(path.String())
 		resp = user.AddPassword(newPassword, newURL)
-		LogTrace(user.Passwords[newURL])
 		user.Write(path.String())
 	}
 
