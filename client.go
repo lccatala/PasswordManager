@@ -27,6 +27,7 @@ type FormData struct {
 	Name     string
 	URL      string
 	userUUID uuid.UUID
+	Note     SecureNote
 }
 
 var currentUser User
@@ -91,12 +92,15 @@ func connect(command string, fd FormData) *Response {
 	data.Set("name", fd.Name)
 	data.Set("email", fd.Email)
 	data.Set("pubKey", Encode64(Compress(JSONPub)))
+	data.Set("JSONkpString", Encode64(JSONkp))
 	data.Set("privKey", Encode64(Encrypt(Compress(JSONkp), dataKey)))
+	data.Set("dataKey", Encode64(dataKey))
 	data.Set("url", fd.URL)
 	data.Set("uuid", currentUser.UUID.String())
 
-	if command != "add" {
-		data.Set("password", Encode64(loginKey))
+	if command != "addpass" {
+		data.Set("loginKey", Encode64(loginKey))
+		data.Set("dataKey", Encode64(dataKey))
 	} else {
 		data.Set("password", fd.Password)
 	}

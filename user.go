@@ -19,14 +19,17 @@ type User struct {
 	Name      string
 	Hash      []byte            // Password hash
 	Salt      []byte            // Password salt
-	Data      map[string]string // Additional data (public and private keys)
+	Data      map[string]string // public and private keys
+	DataKey   []byte            // Key to encrypt user's data
 	Passwords map[string]string // Key: url, Value: password
+	Notes     []SecureNote      // Secure notes
 }
 
 // Login authenticates the user that calls it on the server
 func (user *User) Login() (resp Response) {
 	storedUser := User{}
-	storedUser.Read(user.UUID.String())
+	storedUser.Read(user.UUID.String(), user.DataKey)
+	LogTrace("Gotten name " + storedUser.Name)
 	if user.Passwords == nil {
 		user.Passwords = make(map[string]string)
 	}
@@ -59,12 +62,20 @@ func (user *User) Signup() (resp Response) {
 	} else {
 		resp.Ok = true
 		user.Passwords = make(map[string]string)
-		user.WriteToJSON(user.UUID.String())
+		user.WriteToJSON()
 		user.WriteToList()
 		users[user.UUID.String()] = true
 		LogInfo("Signed up user")
 	}
 
+	return
+}
+
+// AddNote adds a SecureNote to the calling user
+func (user *User) AddNote(noteTitle string, noteContent string) (resp Response) {
+	newNote := SecureNote{noteTitle, noteContent}
+	user.Notes = append(user.Notes, newNote)
+	resp.Ok = true
 	return
 }
 
@@ -79,36 +90,21 @@ func (user *User) AddPassword(password string, url string) (resp Response) {
 	return
 }
 
-// EncryptFields encrypts the calling user's fields with it's private key
-func (user *User) EncryptFields() {
-	//bytekey := []byte(user.Data["privKey"]) // TODO use another key for encrypting
-
-	user.Email = Encode64(Encrypt([]byte(user.Email), KEY))
-	user.Name = Encode64(Encrypt([]byte(user.Name), KEY))
-
-	for k, v := range user.Passwords {
-		ek := Encode64(Encrypt([]byte(k), KEY))
-		ev := Encode64(Encrypt([]byte(v), KEY))
-		user.Passwords[ek] = ev
-		delete(user.Passwords, k)
-	}
-}
-
 // Read reads from a json file into it's calling user
-func (user *User) Read(uuid string) {
+func (user *User) Read(uuid string, key []byte) {
 	if user.Passwords == nil {
 		user.Passwords = make(map[string]string)
 	}
 	fileData, _ := ioutil.ReadFile("users/" + uuid + ".json")
-
-	Decrypt(fileData, parseKey([]byte(user.Data["privKey"])))
+	fileData = Decrypt(fileData, key)
 	json.Unmarshal([]byte(fileData), &user)
 }
 
 // WriteToJSON saves the calling user's data to it's individual json file
-func (user *User) WriteToJSON(filename string) {
+func (user *User) WriteToJSON() {
+	filename := user.UUID.String()
 	fileData, err := json.MarshalIndent(user, "", "  ")
-	fileData = Encrypt(fileData, parseKey([]byte(user.Data["privKey"])))
+	fileData = Encrypt(fileData, user.DataKey)
 	CheckError(err)
 	err = ioutil.WriteFile("users/"+filename+".json", fileData, 0644)
 	CheckError(err)
@@ -142,15 +138,17 @@ func (user *User) GetData(req *http.Request) {
 	user.Data = make(map[string]string)
 	user.Data["pubKey"] = req.Form.Get("pubKey")
 	user.Data["privKey"] = req.Form.Get("privKey")
+	user.Data["loginKey"] = req.Form.Get("loginKey")
+	user.DataKey = Decode64(req.Form.Get("dataKey"))
 
 	// Get password hash
-	password := Decode64(req.Form.Get("password"))
+	password := Decode64(req.Form.Get("loginKey"))
 	user.Hash, _ = scrypt.Key(password, user.Salt, 16384, 8, 1, 32)
 }
 
 // HashPasswordFromFile gets the correct hash for a user by reading the salt from it's file
-func (user *User) HashPasswordFromFile(key string) {
+func (user *User) HashPasswordFromFile() {
 	storedUser := User{}
-	storedUser.Read(user.UUID.String())
-	user.Hash, _ = scrypt.Key(Decode64(key), storedUser.Salt, 16384, 8, 1, 32)
+	storedUser.Read(user.UUID.String(), user.DataKey)
+	user.Hash, _ = scrypt.Key(Decode64(user.Data["loginKey"]), storedUser.Salt, 16384, 8, 1, 32)
 }

@@ -9,6 +9,12 @@ import (
 	"github.com/google/uuid"
 )
 
+// SecureNote stores a typical note with title and content, but it's secure
+type SecureNote struct {
+	Title   string
+	Content string
+}
+
 // Response from server
 type Response struct {
 	Ok       bool
@@ -17,9 +23,10 @@ type Response struct {
 
 // Login and signup modes
 const (
-	LOGIN  = "login"
-	SIGNUP = "signup"
-	ADD    = "add"
+	LOGIN   = "login"
+	SIGNUP  = "signup"
+	ADDPASS = "addpass"
+	ADDNOTE = "addnote"
 )
 
 // KEY for encrypting user list
@@ -46,7 +53,7 @@ func handler(w http.ResponseWriter, req *http.Request) {
 
 	command := req.Form.Get("command")
 	user := User{}
-	if command != ADD {
+	if command != ADDPASS {
 		user.GetData(req)
 	}
 
@@ -55,18 +62,28 @@ func handler(w http.ResponseWriter, req *http.Request) {
 	case SIGNUP:
 		resp = user.Signup()
 	case LOGIN:
-		user.HashPasswordFromFile(req.Form.Get("password"))
+		user.HashPasswordFromFile()
 		resp = user.Login()
-	case ADD:
+	case ADDPASS:
 		newPassword := req.Form.Get("password")
 		newURL := req.Form.Get("url")
 
 		user := User{}
+		//path, _ := uuid.Parse(req.Form.Get("uuid"))
+
+		//user.Read(path.String(), string(privKey))
+		resp = user.AddPassword(newPassword, newURL)
+		user.WriteToJSON()
+	case ADDNOTE:
+		noteTitle := req.Form.Get("noteTitle")
+		noteContent := req.Form.Get("noteContent")
+
+		user := User{}
 		path, _ := uuid.Parse(req.Form.Get("uuid"))
 
-		user.Read(path.String())
-		resp = user.AddPassword(newPassword, newURL)
-		user.WriteToJSON(path.String())
+		user.Read(path.String(), user.DataKey)
+		resp = user.AddNote(noteTitle, noteContent)
+		user.WriteToJSON()
 	}
 
 	respond(w, resp)
@@ -77,17 +94,4 @@ func respond(w io.Writer, resp Response) {
 	JSONResp, err := json.Marshal(&resp)
 	CheckError(err)
 	w.Write(JSONResp)
-}
-
-// Modify server key so it has an appropiate length
-func parseKey(key []byte) []byte {
-	if len(key) > 16 {
-		return key[0:16]
-	} else if len(key) < 16 {
-		var l = len(key)
-		for i := 0; i < 16-l; i++ {
-			key = append(key, key[i])
-		}
-	}
-	return key
 }
