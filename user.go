@@ -59,7 +59,8 @@ func (user *User) Signup() (resp Response) {
 	} else {
 		resp.Ok = true
 		user.Passwords = make(map[string]string)
-		user.Write(user.UUID.String())
+		user.WriteToJSON(user.UUID.String())
+		user.WriteToList()
 		users[user.UUID.String()] = true
 		LogInfo("Signed up user")
 	}
@@ -86,19 +87,10 @@ func (user *User) EncryptFields() {
 	user.Name = Encode64(Encrypt([]byte(user.Name), KEY))
 
 	for k, v := range user.Passwords {
-		user.Passwords[k] = Encode64(Encrypt([]byte(v), KEY))
-	}
-}
-
-// DecryptFields decrypts the calling user's fields with it's private key
-func (user *User) DecryptFields() {
-	//bytekey := []byte(user.Data["privKey"]) // TODO use another key for encrypting
-
-	user.Email = string(Decrypt(Decode64(user.Email), KEY))
-	user.Name = string(Decrypt(Decode64(user.Name), KEY))
-
-	for k, v := range user.Passwords {
-		user.Passwords[k] = string(Decrypt(Decode64(v), KEY))
+		ek := Encode64(Encrypt([]byte(k), KEY))
+		ev := Encode64(Encrypt([]byte(v), KEY))
+		user.Passwords[ek] = ev
+		delete(user.Passwords, k)
 	}
 }
 
@@ -108,21 +100,22 @@ func (user *User) Read(uuid string) {
 		user.Passwords = make(map[string]string)
 	}
 	fileData, _ := ioutil.ReadFile("users/" + uuid + ".json")
+
+	Decrypt(fileData, parseKey([]byte(user.Data["privKey"])))
 	json.Unmarshal([]byte(fileData), &user)
-	user.DecryptFields()
 }
 
-// Write saves the calling user's data to the server's user list (encrypted) and to it's individual json
-func (user *User) Write(filename string) {
-
-	// Save to user's individual JSON
-	user.EncryptFields()
+// WriteToJSON saves the calling user's data to it's individual json file
+func (user *User) WriteToJSON(filename string) {
 	fileData, err := json.MarshalIndent(user, "", "  ")
+	fileData = Encrypt(fileData, parseKey([]byte(user.Data["privKey"])))
 	CheckError(err)
 	err = ioutil.WriteFile("users/"+filename+".json", fileData, 0644)
 	CheckError(err)
+}
 
-	// Add user to users list
+// WriteToList appends the user's UUID to the server's user list
+func (user *User) WriteToList() {
 	f, err := os.OpenFile("users/users.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	CheckError(err)
 	defer f.Close()

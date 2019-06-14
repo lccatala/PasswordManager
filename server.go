@@ -66,7 +66,7 @@ func handler(w http.ResponseWriter, req *http.Request) {
 
 		user.Read(path.String())
 		resp = user.AddPassword(newPassword, newURL)
-		user.Write(path.String())
+		user.WriteToJSON(path.String())
 	}
 
 	respond(w, resp)

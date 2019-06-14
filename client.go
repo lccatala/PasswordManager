@@ -121,10 +121,10 @@ func readFormData(ui lorca.UI) (data FormData) {
 
 func readProfileForm(ui lorca.UI) (data FormData) {
 	data.URL = ui.Eval("getUrl()").String()
-	useUppercase := false //ui.Eval("getUseUpperCase()").Bool()
-	useRepeating := true  //ui.Eval("getUseRepeating()").Bool()
-	pl := 12              //ui.Eval("getPassLength()").Int()
-	pass, err := password.Generate(pl, 4, 4, !useUppercase, useRepeating)
+	useUppercase := true //ui.Eval("getUseUpperCase()").Bool()
+	useRepeating := true //ui.Eval("getUseRepeating()").Bool()
+
+	pass, err := password.Generate(12, 4, 4, !useUppercase, useRepeating)
 	CheckError(err)
 
 	if useUppercase {
