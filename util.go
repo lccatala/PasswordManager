@@ -95,16 +95,3 @@ func ReadAllUsers() (users map[string]bool) {
 	}
 	return
 }
-
-// Modify server key so it has an appropiate length
-func parseKey(key []byte) []byte {
-	if len(key) > 16 {
-		return key[0:16]
-	} else if len(key) < 16 {
-		var l = len(key)
-		for i := 0; i < 16-l; i++ {
-			key = append(key, key[i])
-		}
-	}
-	return key
-}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"strings"
 )
@@ -10,15 +9,11 @@ func main() {
 	if len(os.Args) > 1 {
 		switch strings.ToLower(os.Args[1]) {
 		case "server":
-			if len(os.Args) > 2 {
-				startServer()
-			} else {
-				fmt.Printf("Error: invaild number of arguments.\n\n go run *.gp server ServerKey\n\n")
-			}
+			startServer()
 		case "client":
 			startClientUI()
 		}
 	} else {
-		fmt.Printf("Incorrect number of arguments.\nFirst argument should be either 'client' or 'server'\n")
+		LogError("Incorrect number of arguments. Possible executions are: 'go run *.client' or 'go run *.server'")
 	}
 }

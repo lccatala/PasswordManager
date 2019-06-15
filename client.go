@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha512"
 	"crypto/tls"
 	"encoding/json"
@@ -72,37 +70,22 @@ func connect(command string, fd FormData) *Response {
 	loginKey := clientKey[:32]  // first half for login (256 bits)
 	dataKey := clientKey[32:64] // second half for data (256 bits)
 
-	// Generate public/private key pair for server
-	clientKP, err := rsa.GenerateKey(rand.Reader, 1024)
-	CheckError(err)
-	clientKP.Precompute()
-
-	// Format key pair as JSON
-	JSONkp, err := json.Marshal(&clientKP)
-	CheckError(err)
-
-	// Format public key as JSON
-	pubKey := clientKP.Public()
-	JSONPub, err := json.Marshal(&pubKey)
-	CheckError(err)
-
 	// Prepare data to be sent to server
 	data := url.Values{}
 	data.Set("command", command)
 	data.Set("name", fd.Name)
 	data.Set("email", fd.Email)
-	data.Set("pubKey", Encode64(Compress(JSONPub)))
-	data.Set("JSONkpString", Encode64(JSONkp))
-	data.Set("privKey", Encode64(Encrypt(Compress(JSONkp), dataKey)))
-	data.Set("dataKey", Encode64(dataKey))
-	data.Set("url", fd.URL)
 	data.Set("uuid", currentUser.UUID.String())
+	data.Set("dataKey", Encode64(dataKey))
 
-	if command != "addpass" {
+	if command == LOGIN || command == SIGNUP {
 		data.Set("loginKey", Encode64(loginKey))
-		data.Set("dataKey", Encode64(dataKey))
-	} else {
+	} else if command == ADDPASS {
+		data.Set("url", fd.URL)
 		data.Set("password", fd.Password)
+	} else if command == ADDNOTE {
+		data.Set("notetitle", fd.Note.Title)
+		data.Set("notecontent", fd.Note.Content)
 	}
 	// Send data via POST
 	r, err := client.PostForm("https://localhost:10443", data)
@@ -131,13 +114,6 @@ func readProfileForm(ui lorca.UI) (data FormData) {
 	pass, err := password.Generate(12, 4, 4, !useUppercase, useRepeating)
 	CheckError(err)
 
-	if useUppercase {
-		LogTrace("Using uppercase")
-	}
-	if useRepeating {
-		LogTrace("Using repeating")
-	}
-
 	data.Password = pass
 	return
 }
@@ -163,7 +139,7 @@ func setUpLoginFunctions(ui lorca.UI) {
 
 func setupProfileFunctions(ui lorca.UI, user User) {
 	ui.Bind("addPassword", func() {
-		LogTrace("Pressed")
+		//LogTrace("Pressed")
 		data := readProfileForm(ui)
 		data.userUUID = currentUser.UUID
 		connect("add", data)

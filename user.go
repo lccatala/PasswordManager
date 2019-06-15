@@ -17,19 +17,19 @@ type User struct {
 	UUID      uuid.UUID
 	Email     string
 	Name      string
-	Hash      []byte            // Password hash
-	Salt      []byte            // Password salt
-	Data      map[string]string // public and private keys
-	DataKey   []byte            // Key to encrypt user's data
-	Passwords map[string]string // Key: url, Value: password
-	Notes     []SecureNote      // Secure notes
+	Hash      []byte                // Password hash
+	Salt      []byte                // Password salt
+	Data      map[string]string     // public and private keys
+	DataKey   []byte                // Key to encrypt user's data
+	Passwords map[string]string     // Key: url, Value: password
+	Notes     map[string]SecureNote // Secure notes
 }
 
 // Login authenticates the user that calls it on the server
 func (user *User) Login() (resp Response) {
 	storedUser := User{}
+	user.HashPasswordFromFile()
 	storedUser.Read(user.UUID.String(), user.DataKey)
-	LogTrace("Gotten name " + storedUser.Name)
 	if user.Passwords == nil {
 		user.Passwords = make(map[string]string)
 	}
@@ -72,21 +72,32 @@ func (user *User) Signup() (resp Response) {
 }
 
 // AddNote adds a SecureNote to the calling user
-func (user *User) AddNote(noteTitle string, noteContent string) (resp Response) {
-	newNote := SecureNote{noteTitle, noteContent}
-	user.Notes = append(user.Notes, newNote)
+func (user *User) AddNote(req *http.Request) (resp Response) {
+	user.Read(user.UUID.String(), user.DataKey)
+	if user.Notes == nil {
+		user.Notes = make(map[string]SecureNote)
+	}
+
+	title := req.Form.Get("notetitle")
+	content := req.Form.Get("notecontent")
+	user.Notes[title] = SecureNote{title, content}
 	resp.Ok = true
+	user.WriteToJSON()
 	return
 }
 
 // AddPassword adds a password for a given url to the calling user
-func (user *User) AddPassword(password string, url string) (resp Response) {
+func (user *User) AddPassword(req *http.Request) (resp Response) {
+	user.Read(user.UUID.String(), user.DataKey)
 	if user.Passwords == nil {
 		user.Passwords = make(map[string]string)
 	}
 
-	user.Passwords[url] = password
+	newPassword := req.Form.Get("password")
+	newURL := req.Form.Get("url")
+	user.Passwords[newURL] = newPassword
 	resp.Ok = true
+	user.WriteToJSON()
 	return
 }
 
@@ -122,8 +133,8 @@ func (user *User) WriteToList() {
 	CheckError(err)
 }
 
-// GetData reads a user's fields from an http request into it's calling user
-func (user *User) GetData(req *http.Request) {
+// GetNoteData reads a user's fields from an http request into it's calling user
+func (user *User) GetNoteData(req *http.Request) {
 	user.Name = req.Form.Get("name")
 	var err error
 	user.UUID, err = uuid.FromBytes([]byte(user.Name)[:16])
@@ -136,8 +147,41 @@ func (user *User) GetData(req *http.Request) {
 
 	// Get private and public keys
 	user.Data = make(map[string]string)
-	user.Data["pubKey"] = req.Form.Get("pubKey")
-	user.Data["privKey"] = req.Form.Get("privKey")
+	user.Data["loginKey"] = req.Form.Get("loginKey")
+	user.DataKey = Decode64(req.Form.Get("dataKey"))
+
+	// Get password hash
+	password := Decode64(req.Form.Get("loginKey"))
+	user.Hash, _ = scrypt.Key(password, user.Salt, 16384, 8, 1, 32)
+}
+
+// GetPassData reads a user's fields from an http request into it's calling user
+func (user *User) GetPassData(req *http.Request) {
+	user.Name = req.Form.Get("name")
+	var err error
+	user.UUID, err = uuid.FromBytes([]byte(user.Name)[:16])
+	CheckError(err)
+
+	// Get private and public keys
+	user.Data = make(map[string]string)
+	user.Data["loginKey"] = req.Form.Get("loginKey")
+	user.DataKey = Decode64(req.Form.Get("dataKey"))
+}
+
+// GetAuthData reads a user's fields from an http request into it's calling user
+func (user *User) GetAuthData(req *http.Request) {
+	user.Name = req.Form.Get("name")
+	var err error
+	user.UUID, err = uuid.FromBytes([]byte(user.Name)[:16])
+	CheckError(err)
+	user.Email = req.Form.Get("email")
+
+	// 16 byte (128 bit) random salt
+	user.Salt = make([]byte, 16)
+	rand.Read(user.Salt)
+
+	// Get private and public keys
+	user.Data = make(map[string]string)
 	user.Data["loginKey"] = req.Form.Get("loginKey")
 	user.DataKey = Decode64(req.Form.Get("dataKey"))
 
