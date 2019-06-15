@@ -108,8 +108,8 @@ func readFormData(ui lorca.UI) (data FormData) {
 
 func readProfileForm(ui lorca.UI) (data FormData) {
 	data.URL = ui.Eval("getUrl()").String()
-	useUppercase := true //ui.Eval("getUseUpperCase()").Bool()
-	useRepeating := true //ui.Eval("getUseRepeating()").Bool()
+	useUppercase := ui.Eval("getUseUpperCase()").Bool()
+	useRepeating := ui.Eval("getUseRepeating()").Bool()
 
 	pass, err := password.Generate(12, 4, 4, !useUppercase, useRepeating)
 	CheckError(err)
@@ -139,10 +139,9 @@ func setUpLoginFunctions(ui lorca.UI) {
 
 func setupProfileFunctions(ui lorca.UI, user User) {
 	ui.Bind("addPassword", func() {
-		//LogTrace("Pressed")
 		data := readProfileForm(ui)
 		data.userUUID = currentUser.UUID
-		connect("add", data)
+		connect(ADDPASS, data)
 		loadProfile(ui, user)
 	})
 }
