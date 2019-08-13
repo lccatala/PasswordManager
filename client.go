@@ -135,19 +135,17 @@ func setUpLoginFunctions(ui lorca.UI) {
 			loadProfile(ui, resp.UserData)
 		}
 	})
-}
 
-func setupProfileFunctions(ui lorca.UI, user User) {
 	ui.Bind("addPassword", func() {
+		LogTrace("Pressed")
 		data := readProfileForm(ui)
 		data.userUUID = currentUser.UUID
 		connect(ADDPASS, data)
-		loadProfile(ui, user)
 	})
 }
 
 func loadProfile(ui lorca.UI, user User) {
-	setupProfileFunctions(ui, user)
+	currentUser = user
 	html, _ := ioutil.ReadFile("public/profile.html")
 	ui.Load("data:text/html," + url.PathEscape(string(html)))
 	replaceInDoc(ui, "username", user.Name)
